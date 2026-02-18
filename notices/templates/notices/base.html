@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}Извещения{% endblock %}</title>
+
+  <!-- Bootstrap 5 -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css"
+        rel="stylesheet">
+  <!-- Bootstrap Icons -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css"
+        rel="stylesheet">
+
+  <style>
+  /* Статусы */
+  .status-overdue   { background: #f8d7da !important; }
+  .status-critical  { background: #f5c6cb !important; }
+  .status-warning   { background: #fff3cd !important; }
+  .status-attention { background: #d1ecf1 !important; }
+  .status-ok        { background: #d4edda !important; }
+  .status-no-date   { background: #fff    !important; }
+
+  .legend-box {
+    width: 16px; height: 16px;
+    display: inline-block;
+    border-radius: 3px;
+    border: 1px solid #ccc;
+    vertical-align: middle;
+  }
+
+  /* Карточки объектов */
+  .item-row { border: 1px solid #dee2e6; border-radius: .375rem; }
+  .item-row .card-header { border-radius: .375rem .375rem 0 0; }
+  .item-row .card-header:hover { background: #e9ecef !important; }
+
+  /* Скроллбар контейнера объектов */
+  #itemsContainer::-webkit-scrollbar { width: 6px; }
+  #itemsContainer::-webkit-scrollbar-track { background: #f1f1f1; }
+  #itemsContainer::-webkit-scrollbar-thumb {
+    background: #adb5bd; border-radius: 3px;
+  }
+
+  /* Автодополнение */
+  .autocomplete-dropdown {
+    position: absolute; top: 100%; left: 0; right: 0;
+    z-index: 9999;
+    background: #fff;
+    border: 1px solid #ced4da;
+    border-top: none;
+    border-radius: 0 0 .375rem .375rem;
+    max-height: 220px; overflow-y: auto;
+    display: none;
+    box-shadow: 0 4px 12px rgba(0,0,0,.1);
+  }
+  .autocomplete-item {
+    padding: .4rem .75rem;
+    cursor: pointer; font-size: .85rem;
+    border-bottom: 1px solid #f0f0f0;
+  }
+  .autocomplete-item:last-child { border-bottom: none; }
+  .autocomplete-item:hover,
+  .autocomplete-item.active { background: #e7f1ff; color: #0d6efd; }
+
+  mark { background: #fff176; padding: 0 2px; border-radius: 2px; }
+</style>
+</head>
+<body>
+
+<nav class="navbar navbar-expand-lg navbar-dark bg-primary mb-4">
+  <div class="container-fluid">
+    <a class="navbar-brand" href="{% url 'notice_list' %}">
+      <i class="bi bi-bell-fill me-2"></i>Извещения
+    </a>
+  </div>
+</nav>
+
+<div class="container-fluid px-4">
+  {% for message in messages %}
+    <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+      {{ message }}
+      <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+  {% endfor %}
+
+  {% block content %}{% endblock %}
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+{% block scripts %}{% endblock %}
+</body>
+</html>

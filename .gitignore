@@ -1,0 +1,31 @@
+# Виртуальное окружение
+.venv/
+venv/
+env/
+
+# База данных
+db.sqlite3
+db.sqlite3-wal
+db.sqlite3-shm
+
+# Статика (генерируется collectstatic)
+staticfiles/
+
+# Кэш Python
+__pycache__/
+*.pyc
+*.pyo
+
+# VS Code
+.vscode/
+
+# Переменные окружения
+.env
+
+# Логи
+logs/
+*.log
+
+# Windows
+Thumbs.db
+desktop.ini

@@ -1,0 +1,309 @@
+{% extends 'notices/base.html' %}
+{% load static %}
+
+{% block title %}Извещения{% endblock %}
+
+{% block content %}
+
+<!-- Панель -->
+<div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+  <h4 class="mb-0"><i class="bi bi-list-ul me-2"></i>Список извещений</h4>
+  <button class="btn btn-success" onclick="openAddModal()">
+    <i class="bi bi-plus-circle me-1"></i>Добавить извещение
+  </button>
+</div>
+
+<!-- Поиск -->
+<div class="card mb-3 shadow-sm">
+  <div class="card-body py-2">
+    <form method="get">
+      <div class="row g-2 align-items-end">
+        <div class="col-12 col-md-4">
+          <label class="form-label form-label-sm mb-1">Поиск</label>
+          {{ search_form.q }}
+        </div>
+        <div class="col-6 col-md-2">
+          <label class="form-label form-label-sm mb-1">Поле даты</label>
+          {{ search_form.date_field }}
+        </div>
+        <div class="col-6 col-md-2">
+          <label class="form-label form-label-sm mb-1">С даты</label>
+          {{ search_form.date_from }}
+        </div>
+        <div class="col-6 col-md-2">
+          <label class="form-label form-label-sm mb-1">По дату</label>
+          {{ search_form.date_to }}
+        </div>
+        <div class="col-6 col-md-2 d-flex gap-1">
+          <button type="submit" class="btn btn-primary btn-sm w-100">
+            <i class="bi bi-search"></i> Найти
+          </button>
+          <a href="{% url 'notice_list' %}" class="btn btn-outline-secondary btn-sm">
+            <i class="bi bi-x-lg"></i>
+          </a>
+        </div>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Легенда -->
+<div class="d-flex flex-wrap gap-3 mb-3 small">
+  <span><span class="legend-box" style="background:#f8d7da"></span> Просрочено</span>
+  <span><span class="legend-box" style="background:#f5c6cb"></span> ≤3 дней</span>
+  <span><span class="legend-box" style="background:#fff3cd"></span> ≤7 дней</span>
+  <span><span class="legend-box" style="background:#d1ecf1"></span> ≤14 дней</span>
+  <span><span class="legend-box" style="background:#d4edda"></span> В срок</span>
+</div>
+
+<!-- Таблица -->
+{% if notices %}
+<div class="table-responsive shadow-sm rounded">
+  <table class="table table-bordered table-hover mb-0 align-middle">
+    <thead class="table-dark">
+      <tr>
+        <th style="width:40px">#</th>
+        <th>Объекты (адрес / кадастр / заказчик / договор)</th>
+        <th style="width:180px">Газета</th>
+        <th style="width:110px">Дата выпуска</th>
+        <th style="width:140px">Дата согласования</th>
+        <th style="width:120px">Действия</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for item in notices %}
+      <tr class="status-{{ item.approval_status }}">
+        <td class="text-center fw-bold">{{ item.obj.pk }}</td>
+
+        <!-- Объекты -->
+        <td>
+          {% if item.items %}
+            <ol class="mb-0 ps-3 small">
+              {% for it in item.items %}
+              <li>
+                {% if it.address %}
+                  <span class="text-secondary">
+                    <i class="bi bi-geo-alt-fill"></i>
+                  </span>
+                  {{ it.address|safe }}
+                {% endif %}
+                {% if it.cadastral_number %}
+                  <span class="badge bg-light text-dark border ms-1">
+                    {{ it.cadastral_number|safe }}
+                  </span>
+                {% endif %}
+                {% if it.customer %}
+                  <br><small class="text-muted">
+                    <i class="bi bi-person me-1"></i>{{ it.customer|safe }}
+                  </small>
+                {% endif %}
+                {% if it.contract %}
+                  <small class="text-muted ms-2">
+                    <i class="bi bi-file-text me-1"></i>{{ it.contract|safe }}
+                  </small>
+                {% endif %}
+              </li>
+              {% endfor %}
+            </ol>
+          {% else %}
+            <span class="text-muted">—</span>
+          {% endif %}
+        </td>
+
+        <td class="small">{{ item.newspaper|safe }}</td>
+        <td class="text-nowrap small">
+          {{ item.obj.issue_date|date:"d.m.Y"|default:"—" }}
+        </td>
+        <td class="text-nowrap small">
+          {% if item.obj.approval_date %}
+            {{ item.obj.approval_date|date:"d.m.Y" }}
+            {% if item.approval_status == 'overdue' %}
+              <span class="badge bg-danger d-block mt-1">Просрочено</span>
+            {% elif item.approval_status == 'critical' %}
+              <span class="badge bg-danger d-block mt-1">≤3 дней</span>
+            {% elif item.approval_status == 'warning' %}
+              <span class="badge bg-warning text-dark d-block mt-1">≤7 дней</span>
+            {% elif item.approval_status == 'attention' %}
+              <span class="badge bg-info text-dark d-block mt-1">≤14 дней</span>
+            {% endif %}
+          {% else %}
+            <span class="text-muted">—</span>
+          {% endif %}
+        </td>
+
+        <td>
+          <div class="btn-group btn-group-sm">
+            <button class="btn btn-outline-primary" title="Редактировать"
+                    onclick="openEditModal({{ item.obj.pk }})">
+              <i class="bi bi-pencil"></i>
+            </button>
+            <a class="btn btn-outline-success"
+               href="{% url 'notice_export' item.obj.pk %}"
+               title="Экспорт Word">
+              <i class="bi bi-file-earmark-word"></i>
+            </a>
+            <button class="btn btn-outline-danger" title="Удалить"
+                    onclick="confirmDelete({{ item.obj.pk }})">
+              <i class="bi bi-trash"></i>
+            </button>
+          </div>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+<div class="text-muted small mt-2">
+  Записей: <strong>{{ notices|length }}</strong>
+</div>
+
+{% else %}
+<div class="alert alert-info">
+  <i class="bi bi-info-circle me-2"></i>
+  {% if query %}По запросу <strong>«{{ query }}»</strong> ничего не найдено.
+  {% else %}Нет извещений. <a href="#" onclick="openAddModal()">Добавьте первое!</a>{% endif %}
+</div>
+{% endif %}
+
+
+<!-- ══════════════════════════════════════════════
+     МОДАЛЬНОЕ ОКНО: ДОБАВИТЬ / РЕДАКТИРОВАТЬ
+══════════════════════════════════════════════ -->
+<div class="modal fade" id="noticeModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-xl modal-dialog-scrollable">
+    <div class="modal-content">
+
+      <div class="modal-header bg-primary text-white py-2">
+        <h5 class="modal-title mb-0">
+          <i class="bi bi-bell me-2"></i>
+          <span id="modalTitleText">Добавить извещение</span>
+        </h5>
+        <button type="button" class="btn-close btn-close-white"
+                data-bs-dismiss="modal"></button>
+      </div>
+
+      <form id="noticeForm" method="post" action="{% url 'notice_create' %}">
+        {% csrf_token %}
+
+        <div class="modal-body p-0">
+
+          <!-- ── Фиксированная шапка: газета и даты ── -->
+          <div class="p-3 border-bottom bg-light">
+            <div class="row g-3">
+              <div class="col-12 col-md-4">
+                <label class="form-label fw-semibold mb-1">
+                  <i class="bi bi-newspaper me-1"></i>Газета
+                  <span class="text-danger">*</span>
+                </label>
+                <input type="text" name="newspaper" id="id_newspaper"
+                       class="form-control form-control-sm"
+                       placeholder="Название газеты">
+              </div>
+              <div class="col-6 col-md-4">
+                <label class="form-label fw-semibold mb-1">
+                  <i class="bi bi-calendar-event me-1"></i>Дата выпуска
+                </label>
+                <input type="date" name="issue_date" id="id_issue_date"
+                       class="form-control form-control-sm">
+              </div>
+              <div class="col-6 col-md-4">
+                <label class="form-label fw-semibold mb-1">
+                  <i class="bi bi-calendar-check me-1"></i>Дата согласования
+                </label>
+                <input type="date" name="approval_date" id="id_approval_date"
+                       class="form-control form-control-sm">
+              </div>
+            </div>
+          </div>
+
+          <!-- ── Прокручиваемая область объектов ── -->
+          <div class="p-3">
+            <div class="d-flex justify-content-between align-items-center mb-2">
+              <span class="fw-semibold">
+                <i class="bi bi-list-ol me-1"></i>Объекты извещения
+              </span>
+              <div class="d-flex gap-1">
+                <button type="button" class="btn btn-outline-secondary btn-sm"
+                        onclick="collapseAll()" title="Свернуть все">
+                  <i class="bi bi-arrows-collapse"></i>
+                </button>
+                <button type="button" class="btn btn-outline-secondary btn-sm"
+                        onclick="expandAll()" title="Развернуть все">
+                  <i class="bi bi-arrows-expand"></i>
+                </button>
+                <button type="button" class="btn btn-success btn-sm"
+                        onclick="addItemRow(null)">
+                  <i class="bi bi-plus-circle me-1"></i>Добавить объект
+                </button>
+              </div>
+            </div>
+
+            <!-- Контейнер объектов с прокруткой -->
+            <div id="itemsContainer"
+                 style="max-height:55vh; overflow-y:auto;
+                        padding-right:4px;">
+            </div>
+
+          </div><!-- /p-3 -->
+
+          <div id="formErrors" class="alert alert-danger mx-3 mb-3 d-none"></div>
+
+        </div><!-- /modal-body -->
+
+        <div class="modal-footer py-2">
+          <button type="button" class="btn btn-secondary btn-sm"
+                  data-bs-dismiss="modal">Отмена</button>
+          <button type="submit" class="btn btn-primary btn-sm">
+            <i class="bi bi-check-lg me-1"></i>Сохранить
+          </button>
+        </div>
+      </form>
+
+    </div>
+  </div>
+</div>
+
+
+<!-- ══════════════════════════════════════════════
+     МОДАЛЬНОЕ ОКНО: УДАЛЕНИЕ
+══════════════════════════════════════════════ -->
+<div class="modal fade" id="deleteModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header bg-danger text-white">
+        <h5 class="modal-title">
+          <i class="bi bi-exclamation-triangle me-2"></i>Удалить извещение?
+        </h5>
+        <button type="button" class="btn-close btn-close-white"
+                data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">Действие необратимо.</div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary"
+                data-bs-dismiss="modal">Отмена</button>
+        <form id="deleteForm" method="post">
+          {% csrf_token %}
+          <button type="submit" class="btn btn-danger">
+            <i class="bi bi-trash me-1"></i>Удалить
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+  window.NOTICES_CONFIG = {
+    fiasUrl:   "{% url 'fias_suggest' %}",
+    csrfToken: "{{ csrf_token }}",
+    createUrl: "{% url 'notice_create' %}",
+    getUrl:    "{% url 'notice_get'    0 %}",
+    editUrl:   "{% url 'notice_edit'   0 %}",
+    deleteUrl: "{% url 'notice_delete' 0 %}",
+  };
+</script>
+<script src="{% static 'notices/js/notices.js' %}"></script>
+{% endblock %}
