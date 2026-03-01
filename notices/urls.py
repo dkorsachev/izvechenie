@@ -9,4 +9,6 @@ urlpatterns = [
     path('<int:pk>/delete/', views.notice_delete,      name='notice_delete'),
     path('<int:pk>/export/', views.notice_export_word, name='notice_export'),
     path('fias/suggest/',  views.fias_suggest,         name='fias_suggest'),
+    path('import/',       views.notice_import, name='notice_import'),
+    path('import/template/', views.notice_import_template, name='notice_import_template'),
 ]

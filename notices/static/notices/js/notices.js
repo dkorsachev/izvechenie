@@ -516,3 +516,55 @@ function confirmDelete(pk) {
     CFG().deleteUrl.replace('0', pk);
   new bootstrap.Modal(document.getElementById('deleteModal')).show();
 }
+
+  // ── Импорт из Excel ───────────────────────────────────────────────────────
+
+function doImport() {
+  const fileInput = document.getElementById('importFile');
+  const resultDiv = document.getElementById('importResult');
+  const btn       = document.getElementById('importBtn');
+  const spinner   = document.getElementById('importSpinner');
+
+  if (!fileInput.files.length) {
+    alert('Выберите файл Excel');
+    return;
+  }
+
+  const formData = new FormData();
+  formData.append('excel_file', fileInput.files[0]);
+
+  // Показываем спиннер, блокируем кнопку
+  btn.disabled = true;
+  spinner.classList.remove('d-none');
+  resultDiv.classList.add('d-none');
+
+  fetch(window.NOTICES_CONFIG.importUrl, {
+    method: 'POST',
+    headers: { 'X-CSRFToken': window.NOTICES_CONFIG.csrfToken },
+    body: formData,
+  })
+    .then(r => r.json())
+    .then(data => {
+      resultDiv.classList.remove('d-none');
+      if (data.success) {
+        resultDiv.className = 'alert alert-success mb-3';
+        resultDiv.innerHTML =
+          `<i class="bi bi-check-circle me-1"></i>${data.message}` +
+          `<br><small class="text-muted">Страница обновится через секунду…</small>`;
+        setTimeout(() => location.reload(), 1500);
+      } else {
+        resultDiv.className = 'alert alert-danger mb-3';
+        resultDiv.innerHTML =
+          `<i class="bi bi-x-circle me-1"></i>${data.error}`;
+      }
+    })
+    .catch(err => {
+      resultDiv.classList.remove('d-none');
+      resultDiv.className = 'alert alert-danger mb-3';
+      resultDiv.innerHTML = `<i class="bi bi-x-circle me-1"></i>Ошибка: ${err}`;
+    })
+    .finally(() => {
+      btn.disabled = false;
+      spinner.classList.add('d-none');
+    });
+}

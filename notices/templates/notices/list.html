@@ -8,9 +8,14 @@
 <!-- Панель -->
 <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
   <h4 class="mb-0"><i class="bi bi-list-ul me-2"></i>Список извещений</h4>
-  <button class="btn btn-success" onclick="openAddModal()">
-    <i class="bi bi-plus-circle me-1"></i>Добавить извещение
-  </button>
+  <div class="d-flex gap-2">
+    <button class="btn btn-success btn-sm" data-bs-toggle="modal" data-bs-target="#importModal">
+      <i class="bi bi-file-earmark-excel me-1"></i>Импорт из Excel
+    </button>
+    <button class="btn btn-primary btn-sm" onclick="openAddModal()">
+      <i class="bi bi-plus-circle me-1"></i>Добавить извещение
+    </button>
+  </div>
 </div>
 
 <!-- Поиск -->
@@ -58,7 +63,7 @@
 
 <!-- Таблица -->
 {% if notices %}
-<div class="table-responsive shadow-sm rounded">
+<div class="table-scroll-wrapper shadow-sm rounded">
   <table class="table table-bordered table-hover mb-0 align-middle">
     <thead class="table-dark">
       <tr>
@@ -167,6 +172,79 @@
 
 
 <!-- ══════════════════════════════════════════════
+     МОДАЛЬНОЕ ОКНО: ИМПОРТ ИЗ EXCEL
+══════════════════════════════════════════════ -->
+<div class="modal fade" id="importModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+
+      <div class="modal-header bg-success text-white py-2">
+        <h5 class="modal-title mb-0">
+          <i class="bi bi-file-earmark-excel me-2"></i>Импорт из Excel
+        </h5>
+        <button type="button" class="btn-close btn-close-white"
+                data-bs-dismiss="modal"></button>
+      </div>
+
+      <div class="modal-body">
+
+        <!-- Инструкция -->
+        <div class="alert alert-info small mb-3">
+          <strong><i class="bi bi-info-circle me-1"></i>Формат файла Excel (.xlsx):</strong><br>
+          Первая строка — заголовки колонок:
+          <div class="mt-1">
+            <code>Адрес</code> &nbsp;|&nbsp;
+            <code>Кадастровый номер</code> &nbsp;|&nbsp;
+            <code>Заказчик</code> &nbsp;|&nbsp;
+            <code>Договор</code> &nbsp;|&nbsp;
+            <code>Газета</code> &nbsp;|&nbsp;
+            <code>Дата выпуска</code> &nbsp;|&nbsp;
+            <code>Дата согласования</code>
+          </div>
+          <div class="mt-1 text-muted">
+            Строки с одинаковой газетой и датами объединятся в одно извещение.
+            Колонки необязательные — оставьте пустыми если нет данных.
+          </div>
+        </div>
+
+        <!-- Результат импорта (скрыт до ответа) -->
+        <div id="importResult" class="d-none mb-3"></div>
+
+        <!-- Выбор файла -->
+        <div class="mb-3">
+          <label class="form-label fw-semibold">Выберите файл Excel</label>
+          <input type="file" class="form-control" id="importFile" accept=".xlsx,.xls">
+          <div class="form-text">Поддерживаются форматы .xlsx и .xls</div>
+        </div>
+
+        <!-- Скачать шаблон -->
+        <div class="border-top pt-3">
+          <a href="{% url 'notice_import_template' %}" class="btn btn-outline-secondary btn-sm">
+            <i class="bi bi-download me-1"></i>Скачать пустой шаблон Excel
+          </a>
+          <span class="text-muted small ms-2">если нет готового файла</span>
+        </div>
+
+      </div>
+
+      <div class="modal-footer py-2">
+        <button type="button" class="btn btn-secondary btn-sm"
+                data-bs-dismiss="modal">Отмена</button>
+        <button type="button" class="btn btn-success btn-sm"
+                id="importBtn">
+          <span id="importSpinner"
+                class="spinner-border spinner-border-sm me-1 d-none"
+                role="status"></span>
+          <i class="bi bi-upload me-1"></i>Импортировать
+        </button>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+
+<!-- ══════════════════════════════════════════════
      МОДАЛЬНОЕ ОКНО: ДОБАВИТЬ / РЕДАКТИРОВАТЬ
 ══════════════════════════════════════════════ -->
 <div class="modal fade" id="noticeModal" tabindex="-1" aria-hidden="true">
@@ -193,7 +271,6 @@
               <div class="col-12 col-md-4">
                 <label class="form-label fw-semibold mb-1">
                   <i class="bi bi-newspaper me-1"></i>Газета
-                  <span class="text-danger">*</span>
                 </label>
                 <input type="text" name="newspaper" id="id_newspaper"
                        class="form-control form-control-sm"
@@ -240,11 +317,10 @@
 
             <!-- Контейнер объектов с прокруткой -->
             <div id="itemsContainer"
-                 style="max-height:55vh; overflow-y:auto;
-                        padding-right:4px;">
+                 style="max-height:55vh; overflow-y:auto; padding-right:4px;">
             </div>
 
-          </div><!-- /p-3 -->
+          </div>
 
           <div id="formErrors" class="alert alert-danger mx-3 mb-3 d-none"></div>
 
@@ -294,16 +370,218 @@
 
 {% endblock %}
 
+<style>
+  /* Таблица строго по ширине окна */
+  .table-responsive {
+    width: 100%;
+    overflow-x: auto;
+    /* Скролл всегда виден снизу */
+    overflow-y: visible;
+  }
+
+  /* Таблица не шире контейнера */
+  .table-responsive .table {
+    table-layout: fixed;
+    width: 100%;
+    min-width: 700px;
+  }
+
+  /* Колонка #  */
+  .table-responsive .table th:nth-child(1),
+  .table-responsive .table td:nth-child(1) {
+    width: 40px;
+    white-space: nowrap;
+  }
+
+  /* Колонка Объекты — занимает всё остальное место */
+  .table-responsive .table th:nth-child(2),
+  .table-responsive .table td:nth-child(2) {
+    width: auto;
+    white-space: normal;
+    word-break: break-word;
+    overflow-wrap: break-word;
+  }
+
+  /* Колонка Газета */
+  .table-responsive .table th:nth-child(3),
+  .table-responsive .table td:nth-child(3) {
+    width: 150px;
+    white-space: normal;
+    word-break: break-word;
+  }
+
+  /* Дата выпуска */
+  .table-responsive .table th:nth-child(4),
+  .table-responsive .table td:nth-child(4) {
+    width: 100px;
+    white-space: nowrap;
+  }
+
+  /* Дата согласования */
+  .table-responsive .table th:nth-child(5),
+  .table-responsive .table td:nth-child(5) {
+    width: 120px;
+    white-space: nowrap;
+  }
+
+  /* Действия */
+  .table-responsive .table th:nth-child(6),
+  .table-responsive .table td:nth-child(6) {
+    width: 100px;
+    white-space: nowrap;
+  }
+
+  /* Скролл закреплён снизу — липкая полоса */
+  .table-scroll-wrapper {
+    position: relative;
+    overflow-x: auto;
+    overflow-y: visible;
+    /* Показывать скролл всегда */
+    scrollbar-width: thin;
+  }
+
+  /* Webkit браузеры — тонкий скролл */
+  .table-scroll-wrapper::-webkit-scrollbar {
+    height: 6px;
+  }
+  .table-scroll-wrapper::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 3px;
+  }
+  .table-scroll-wrapper::-webkit-scrollbar-thumb {
+    background: #aaa;
+    border-radius: 3px;
+  }
+  .table-scroll-wrapper::-webkit-scrollbar-thumb:hover {
+    background: #666;
+  }
+</style>
+
 {% block scripts %}
 <script>
   window.NOTICES_CONFIG = {
-    fiasUrl:   "{% url 'fias_suggest' %}",
-    csrfToken: "{{ csrf_token }}",
-    createUrl: "{% url 'notice_create' %}",
-    getUrl:    "{% url 'notice_get'    0 %}",
-    editUrl:   "{% url 'notice_edit'   0 %}",
-    deleteUrl: "{% url 'notice_delete' 0 %}",
+    fiasUrl:    "{% url 'fias_suggest' %}",
+    csrfToken:  "{{ csrf_token }}",
+    createUrl:  "{% url 'notice_create' %}",
+    getUrl:     "{% url 'notice_get'    0 %}",
+    editUrl:    "{% url 'notice_edit'   0 %}",
+    deleteUrl:  "{% url 'notice_delete' 0 %}",
+    importUrl:  "{% url 'notice_import' %}",
   };
 </script>
+
+{# Временно — весь notices.js inline чтобы исключить проблему пути #}
 <script src="{% static 'notices/js/notices.js' %}"></script>
+
+<script>
+  // ВРЕМЕННАЯ ЗАГЛУШКА — если notices.js не грузится
+  if (typeof doImport === 'undefined') {
+    console.error('notices.js НЕ загружен! Используем inline версию.');
+
+    function doImport() {
+      const fileInput = document.getElementById('importFile');
+      const resultDiv = document.getElementById('importResult');
+      const btn       = document.getElementById('importBtn');
+      const spinner   = document.getElementById('importSpinner');
+
+      if (!fileInput || !fileInput.files.length) {
+        alert('Выберите файл Excel');
+        return;
+      }
+
+      const formData = new FormData();
+      formData.append('excel_file', fileInput.files[0]);
+
+      btn.disabled = true;
+      if (spinner) spinner.classList.remove('d-none');
+      if (resultDiv) resultDiv.classList.add('d-none');
+
+      fetch(window.NOTICES_CONFIG.importUrl, {
+        method: 'POST',
+        headers: { 'X-CSRFToken': window.NOTICES_CONFIG.csrfToken },
+        body: formData,
+      })
+        .then(r => r.json())
+        .then(data => {
+          if (resultDiv) {
+            resultDiv.classList.remove('d-none');
+            if (data.success) {
+              resultDiv.className = 'alert alert-success mb-3';
+              resultDiv.innerHTML = `<i class="bi bi-check-circle me-1"></i>${data.message}`;
+              setTimeout(() => location.reload(), 1500);
+            } else {
+              resultDiv.className = 'alert alert-danger mb-3';
+              resultDiv.innerHTML = `<i class="bi bi-x-circle me-1"></i>${data.error}`;
+            }
+          }
+        })
+        .catch(err => {
+          if (resultDiv) {
+            resultDiv.classList.remove('d-none');
+            resultDiv.className = 'alert alert-danger mb-3';
+            resultDiv.innerHTML = `<i class="bi bi-x-circle me-1"></i>Ошибка: ${err}`;
+          }
+        })
+        .finally(() => {
+          btn.disabled = false;
+          if (spinner) spinner.classList.add('d-none');
+        });
+    }
+  }
+
+  window.addEventListener('load', function() {
+    const btn = document.getElementById('importBtn');
+    if (btn) btn.addEventListener('click', doImport);
+  });
+</script>
+
+<script>
+  // Липкий горизонтальный скролл — дублирует полосу снизу страницы
+  (function() {
+    const wrapper = document.querySelector('.table-scroll-wrapper');
+    if (!wrapper) return;
+
+    // Создаём фиктивный скролл внизу экрана
+    const stickyScroll = document.createElement('div');
+    stickyScroll.style.cssText = `
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      height: 12px;
+      overflow-x: auto;
+      overflow-y: hidden;
+      z-index: 1000;
+      background: #f8f9fa;
+      border-top: 1px solid #dee2e6;
+    `;
+
+    const stickyInner = document.createElement('div');
+    stickyScroll.appendChild(stickyInner);
+    document.body.appendChild(stickyScroll);
+
+    // Синхронизируем ширину и позицию скролла
+    function syncWidth() {
+      stickyInner.style.width = wrapper.scrollWidth + 'px';
+      stickyInner.style.height = '1px';
+
+      // Показываем только если таблица шире экрана
+      stickyScroll.style.display =
+        wrapper.scrollWidth > wrapper.clientWidth ? 'block' : 'none';
+    }
+
+    // Синхронизация прокрутки
+    stickyScroll.addEventListener('scroll', () => {
+      wrapper.scrollLeft = stickyScroll.scrollLeft;
+    });
+    wrapper.addEventListener('scroll', () => {
+      stickyScroll.scrollLeft = wrapper.scrollLeft;
+    });
+
+    // Обновляем при изменении размера окна
+    window.addEventListener('resize', syncWidth);
+    window.addEventListener('load', syncWidth);
+    syncWidth();
+  })();
+</script>
 {% endblock %}

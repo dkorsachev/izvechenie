@@ -1,6 +1,8 @@
 import re
 import requests
-from datetime import date, timedelta
+import openpyxl
+from collections import OrderedDict
+from datetime import date, timedelta, datetime
 from io import BytesIO
 
 from django.conf import settings
@@ -14,6 +16,9 @@ from docx import Document
 from docx.shared import Pt, RGBColor, Cm, Mm
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 from docx.oxml.ns import qn
+
+from openpyxl.styles import Font, PatternFill
+from openpyxl.utils import get_column_letter
 
 from .models import Notice, NoticeItem
 from .forms import NoticeForm, NoticeItemFormSet, SearchForm
@@ -89,7 +94,7 @@ def notice_create(request):
         form    = NoticeForm(request.POST)
         formset = NoticeItemFormSet(request.POST)
         if form.is_valid() and formset.is_valid():
-            notice          = form.save()
+            notice           = form.save()
             formset.instance = notice
             formset.save()
             messages.success(request, 'Извещение добавлено.')
@@ -133,13 +138,11 @@ def notice_edit(request, pk):
 
         if form.is_valid() and formset.is_valid():
             form.save()
-            # Удаляем все старые items и сохраняем только новые из формы
             notice.items.all().delete()
             instances = formset.save(commit=False)
             for obj in instances:
                 obj.notice = notice
                 obj.save()
-            # Удалённые через can_delete тоже обрабатываем
             for obj in formset.deleted_objects:
                 if obj.pk:
                     obj.delete()
@@ -182,8 +185,10 @@ def fias_suggest(request):
         resp = requests.post(
             settings.FIAS_API_URL,
             json={'query': q, 'count': 10},
-            headers={'Authorization': f'Token {token}',
-                     'Content-Type': 'application/json'},
+            headers={
+                'Authorization': f'Token {token}',
+                'Content-Type': 'application/json',
+            },
             timeout=3
         )
         resp.raise_for_status()
@@ -206,50 +211,10 @@ def fias_suggest(request):
 # ──────────────────────────────────────────────
 # Экспорт Word
 # ──────────────────────────────────────────────
-RED  = (0xC0, 0x00, 0x00)
-GREY = (0x80, 0x80, 0x80)
-
-_MONTHS_RU = ['', 'января', 'февраля', 'марта', 'апреля', 'мая', 'июня',
-              'июля', 'августа', 'сентября', 'октября', 'ноября', 'декабря']
-
-
-def _fmt_date(d):
-    return f'{d.day:02d} {_MONTHS_RU[d.month]} {d.year}'
-
-def _fmt_date_short(d):
-    return d.strftime('%d.%m.%Y')
-
-def _run(para, text, bold=False, italic=False, underline=False,
-         color=None, size=12, name='Times New Roman'):
-    r = para.add_run(text)
-    r.font.name  = name
-    r.font.size  = Pt(size)
-    r.bold       = bold
-    r.italic     = italic
-    r.underline  = underline
-    if color:
-        r.font.color.rgb = RGBColor(*color)
-    try:
-        r._element.rPr.rFonts.set(qn('w:cs'), name)
-        r._element.rPr.rFonts.set(qn('w:eastAsia'), name)
-    except Exception:
-        pass
-    return r
-
-def _para(doc, first_indent=None, left_indent=None,
-          align=WD_ALIGN_PARAGRAPH.JUSTIFY,
-          space_before=0, space_after=0, line_spacing=14):
-    p = doc.add_paragraph()
-    fmt = p.paragraph_format
-    fmt.alignment    = align
-    fmt.space_before = Pt(space_before)
-    fmt.space_after  = Pt(space_after)
-    fmt.line_spacing = Pt(line_spacing)
-    if first_indent is not None:
-        fmt.first_line_indent = Cm(first_indent)
-    if left_indent is not None:
-        fmt.left_indent = Cm(left_indent)
-    return p
+_MONTHS_RU = [
+    '', 'января', 'февраля', 'марта', 'апреля', 'мая', 'июня',
+    'июля', 'августа', 'сентября', 'октября', 'ноября', 'декабря',
+]
 
 
 def notice_export_word(request, pk):
@@ -259,15 +224,14 @@ def notice_export_word(request, pk):
     doc = Document()
 
     # ── Страница ──────────────────────────────
-    sec                = doc.sections[0]
-    sec.page_width     = Mm(210)
-    sec.page_height    = Mm(297)
-    sec.left_margin    = Cm(3.0)
-    sec.right_margin   = Cm(1.5)
-    sec.top_margin     = Cm(2.0)
-    sec.bottom_margin  = Cm(2.0)
+    sec               = doc.sections[0]
+    sec.page_width    = Mm(210)
+    sec.page_height   = Mm(297)
+    sec.left_margin   = Cm(3.0)
+    sec.right_margin  = Cm(1.5)
+    sec.top_margin    = Cm(2.0)
+    sec.bottom_margin = Cm(2.0)
 
-    # Убираем колонтитулы
     sec.header.is_linked_to_previous = False
     sec.footer.is_linked_to_previous = False
     for hf in (sec.header, sec.footer):
@@ -275,19 +239,16 @@ def notice_export_word(request, pk):
             p.clear()
 
     # ── Базовый стиль ─────────────────────────
-    ns            = doc.styles['Normal']
-    ns.font.name  = 'Times New Roman'
-    ns.font.size  = Pt(12)
-    ns.font.bold  = False
+    ns = doc.styles['Normal']
+    ns.font.name      = 'Times New Roman'
+    ns.font.size      = Pt(12)
+    ns.font.bold      = False
     ns.font.color.rgb = RGBColor(0, 0, 0)
-
-    # ── Вспомогательные функции ───────────────
 
     BLACK = RGBColor(0, 0, 0)
 
     def run(para, text, bold=False, underline=False,
             size=12, name='Times New Roman'):
-        """Добавляет run: шрифт всегда чёрный, не курсив."""
         r = para.add_run(text)
         r.font.name      = name
         r.font.size      = Pt(size)
@@ -295,11 +256,10 @@ def notice_export_word(request, pk):
         r.italic         = False
         r.underline      = underline
         r.font.color.rgb = BLACK
-        # Кириллический и восточноазиатский шрифт тоже Times New Roman
         try:
-            rPr = r._element.get_or_add_rPr()
+            rPr    = r._element.get_or_add_rPr()
             rFonts = rPr.get_or_add_rFonts()
-            rFonts.set(qn('w:cs'),      name)
+            rFonts.set(qn('w:cs'),       name)
             rFonts.set(qn('w:eastAsia'), name)
         except Exception:
             pass
@@ -321,30 +281,21 @@ def notice_export_word(request, pk):
         return p
 
     def fmt_date_long(d):
-        """12 мая 2025"""
-        months = ['', 'января', 'февраля', 'марта', 'апреля', 'мая', 'июня',
-                  'июля', 'августа', 'сентября', 'октября', 'ноября', 'декабря']
-        return f'{d.day} {months[d.month]} {d.year}'
+        return f'{d.day} {_MONTHS_RU[d.month]} {d.year}'
 
     def fmt_date_short(d):
-        """12.05.2025"""
         return d.strftime('%d.%m.%Y')
 
-    PLACEHOLDER = '__.__.____'
+    PLACEHOLDER      = '__.__.____'
     PLACEHOLDER_LONG = '__ ________ ____'
 
-    # ══════════════════════════════════════════
-    # ЗАГОЛОВОК
-    # ══════════════════════════════════════════
+    # ── Заголовок ─────────────────────────────
     p = para(align=WD_ALIGN_PARAGRAPH.CENTER, space_after=6)
     run(p,
         'ИЗВЕЩЕНИЕ О ПРОВЕДЕНИИ СОБРАНИЯ О СОГЛАСОВАНИИ\n'
-        'МЕСТОПОЛОЖЕНИЯ ГРАНИЦ ЗЕМЕЛЬНЫХ УЧАСТКОВ',
-        bold=False)
+        'МЕСТОПОЛОЖЕНИЯ ГРАНИЦ ЗЕМЕЛЬНЫХ УЧАСТКОВ')
 
-    # ══════════════════════════════════════════
-    # ВВОДНЫЙ АБЗАЦ
-    # ══════════════════════════════════════════
+    # ── Вводный абзац ─────────────────────────
     p = para(first_indent=1.25, space_before=6)
     run(p, 'Филиалом Публично-правовой компании «')
     run(p, 'Роскадастр', underline=True)
@@ -357,17 +308,14 @@ def notice_export_word(request, pk):
         'контактный телефон (0-22) 50 12 90, в лице заместителя директора '
         'филиала – главного технолога публично-правовой компании «')
     run(p, 'Роскадастр', underline=True)
-    run(p,
-        '» по Луганской Народной Республике ')
+    run(p, '» по Луганской Народной Республике ')
     run(p, 'Прядкина Гавриила Викторовича', underline=True)
     run(p,
         ' (доверенность от 09.01.2025) выполняются кадастровые работы '
         'в отношении земельных участков, расположенных по адресу '
         '(местонахождение):')
 
-    # ══════════════════════════════════════════
-    # СПИСОК ОБЪЕКТОВ (без договора)
-    # ══════════════════════════════════════════
+    # ── Список объектов ───────────────────────
     for i, it in enumerate(items, 1):
         p = para(left_indent=1.25, first_indent=0,
                  space_before=2, space_after=2)
@@ -381,9 +329,7 @@ def notice_export_word(request, pk):
         line = ', '.join(parts) + (';' if parts else '')
         run(p, f'{i}.\t{line}')
 
-    # ══════════════════════════════════════════
-    # ДАТА СОБРАНИЯ  ← Дата согласования
-    # ══════════════════════════════════════════
+    # ── Дата собрания ─────────────────────────
     p = para(first_indent=1.25, space_before=6)
     run(p,
         'Собрание по поводу согласования местоположения границ состоится '
@@ -393,37 +339,28 @@ def notice_export_word(request, pk):
     run(p, approval_str)
     run(p, ' в 10 часов 00 минут.')
 
-    # ══════════════════════════════════════════
-    # ОЗНАКОМЛЕНИЕ
-    # ══════════════════════════════════════════
+    # ── Ознакомление ──────────────────────────
     p = para(first_indent=1.25, space_before=6)
     run(p,
         'С проектами межевых планов можно ознакомиться по адресу: '
         'г. Луганск, ул. Оборонная, д. 101Б.')
 
-    # ══════════════════════════════════════════
-    # СРОКИ ВОЗРАЖЕНИЙ  ← «с» = Дата выпуска, «по» = Дата согласования
-    # ══════════════════════════════════════════
+    # ── Сроки возражений ──────────────────────
     p = para(first_indent=1.25, space_before=6)
     run(p,
         'Требования о проведении согласования местоположения границ земельных '
         'участков на местности и обоснованные возражения о местоположении '
         'границ после ознакомления с проектами межевых планов принимаются с ')
-    # «с» — дата выпуска
     issue_str = (fmt_date_long(notice.issue_date)
                  if notice.issue_date else PLACEHOLDER_LONG)
     run(p, issue_str)
     run(p, ' по ')
-    # «по» — дата согласования
     approval_long = (fmt_date_long(notice.approval_date)
                      if notice.approval_date else PLACEHOLDER_LONG)
     run(p, approval_long)
-    run(p,
-        ' по адресу: г. Луганск, ул. Оборонная, д. 101Б.')
+    run(p, ' по адресу: г. Луганск, ул. Оборонная, д. 101Б.')
 
-    # ══════════════════════════════════════════
-    # ДОКУМЕНТЫ
-    # ══════════════════════════════════════════
+    # ── Документы ─────────────────────────────
     p = para(first_indent=1.25, space_before=6)
     run(p,
         'При проведении согласования местоположения границ при себе иметь '
@@ -431,9 +368,7 @@ def notice_export_word(request, pk):
         'земельный участок (часть 12 статьи 39, часть 2 статьи 40 Федерального '
         'закона от 24 июля 2007 г. № 221-ФЗ «О кадастровой деятельности»).')
 
-    # ══════════════════════════════════════════
-    # СОХРАНЕНИЕ
-    # ══════════════════════════════════════════
+    # ── Сохранение ────────────────────────────
     buf = BytesIO()
     doc.save(buf)
     buf.seek(0)
@@ -451,3 +386,255 @@ def notice_export_word(request, pk):
         f"filename*=UTF-8''{fname}"
     )
     return resp
+
+
+# ──────────────────────────────────────────────
+# Вспомогательная функция парсинга дат
+# ──────────────────────────────────────────────
+def parse_date(value):
+    """Пробует распарсить дату из разных форматов."""
+    if not value:
+        return None
+    if isinstance(value, datetime):
+        return value.date()
+    if hasattr(value, 'date'):
+        return value
+    for fmt in ('%d.%m.%Y', '%Y-%m-%d', '%d/%m/%Y'):
+        try:
+            return datetime.strptime(str(value).strip(), fmt).date()
+        except ValueError:
+            continue
+    return None
+
+
+# ──────────────────────────────────────────────
+# Импорт из Excel
+# ──────────────────────────────────────────────
+@require_POST
+def notice_import(request):
+    excel_file = request.FILES.get('excel_file')
+    if not excel_file:
+        return JsonResponse({'success': False, 'error': 'Файл не выбран'}, status=400)
+
+    if not excel_file.name.endswith(('.xlsx', '.xls')):
+        return JsonResponse(
+            {'success': False, 'error': 'Поддерживаются только .xlsx и .xls'},
+            status=400
+        )
+
+    try:
+        wb = openpyxl.load_workbook(excel_file, data_only=True)
+        ws = wb.active
+    except Exception as e:
+        return JsonResponse(
+            {'success': False, 'error': f'Ошибка чтения файла: {e}'},
+            status=400
+        )
+
+    # ── Читаем заголовки (первая строка) ──────
+    headers = {}
+    for col_idx, cell in enumerate(
+        next(ws.iter_rows(min_row=1, max_row=1)), start=0
+    ):
+        if cell.value:
+            headers[str(cell.value).strip().lower()] = col_idx
+
+    COLUMN_MAP = {
+        'address':          ['адрес'],
+        'cadastral_number': ['кадастровый номер', 'кадастровыйномер',
+                             'кад. номер', 'кад.номер'],
+        'customer':         ['заказчик'],
+        'contract':         ['договор'],
+        'newspaper':        ['газета'],
+        'issue_date':       ['дата выпуска', 'датавыпуска'],
+        'approval_date':    ['дата согласования', 'датасогласования'],
+    }
+
+    def find_col(key):
+        for variant in COLUMN_MAP[key]:
+            if variant in headers:
+                return headers[variant]
+        return None
+
+    col = {key: find_col(key) for key in COLUMN_MAP}
+
+    if col['address'] is None and col['cadastral_number'] is None:
+        return JsonResponse(
+            {'success': False,
+             'error': 'Не найдены колонки «Адрес» или «Кадастровый номер». '
+                      'Проверьте заголовки первой строки.'},
+            status=400
+        )
+
+    # ── Читаем строки с "протяжкой" пустых значений ──────
+    # Газета, дата выпуска, дата согласования — берём из предыдущей строки
+    # если в текущей пусто (fill-down логика)
+    rows_data = []
+
+    prev_newspaper     = ''
+    prev_issue_date    = None
+    prev_approval_date = None
+
+    for row in ws.iter_rows(min_row=2, values_only=True):
+
+        def get_str(key, _row=row):
+            idx = col[key]
+            if idx is None:
+                return ''
+            val = _row[idx]
+            return str(val).strip() if val not in (None, '') else ''
+
+        def get_date(key, _row=row):
+            idx = col[key]
+            if idx is None:
+                return None
+            return parse_date(_row[idx])
+
+        address          = get_str('address')
+        cadastral_number = get_str('cadastral_number')
+        customer         = get_str('customer')
+        contract         = get_str('contract')
+
+        # Пропускаем полностью пустые строки
+        if not any([address, cadastral_number, customer]):
+            continue
+
+        # Газета и даты: если есть в текущей строке — обновляем prev,
+        # если нет — используем предыдущее значение
+        newspaper     = get_str('newspaper')
+        issue_date    = get_date('issue_date')
+        approval_date = get_date('approval_date')
+
+        if newspaper:
+            prev_newspaper = newspaper
+        else:
+            newspaper = prev_newspaper
+
+        if issue_date:
+            prev_issue_date = issue_date
+        else:
+            issue_date = prev_issue_date
+
+        if approval_date:
+            prev_approval_date = approval_date
+        else:
+            approval_date = prev_approval_date
+
+        rows_data.append({
+            'address':          address,
+            'cadastral_number': cadastral_number,
+            'customer':         customer,
+            'contract':         contract,
+            'newspaper':        newspaper,
+            'issue_date':       issue_date,
+            'approval_date':    approval_date,
+        })
+
+    if not rows_data:
+        return JsonResponse(
+            {'success': False, 'error': 'Файл не содержит данных'},
+            status=400
+        )
+
+    # ── Группируем в извещения ────────────────
+    # Новое извещение = смена газеты ИЛИ даты выпуска ИЛИ даты согласования
+    groups = OrderedDict()
+    for r in rows_data:
+        key = (
+            r['newspaper'] or '',
+            str(r['issue_date']    or ''),
+            str(r['approval_date'] or ''),
+        )
+        if key not in groups:
+            groups[key] = {
+                'newspaper':     r['newspaper'],
+                'issue_date':    r['issue_date'],
+                'approval_date': r['approval_date'],
+                'items':         [],
+            }
+        groups[key]['items'].append(r)
+
+    # ── Сохраняем в БД ────────────────────────
+    created_notices = 0
+    created_items   = 0
+
+    for group in groups.values():
+        notice = Notice.objects.create(
+            newspaper=     group['newspaper']     or '',
+            issue_date=    group['issue_date']    or None,
+            approval_date= group['approval_date'] or None,
+        )
+        created_notices += 1
+
+        for order, item in enumerate(group['items']):
+            NoticeItem.objects.create(
+                notice=           notice,
+                address=          item['address'],
+                cadastral_number= item['cadastral_number'],
+                customer=         item['customer'],
+                contract=         item['contract'],
+                order=            order,
+            )
+            created_items += 1
+
+    return JsonResponse({
+        'success':         True,
+        'created_notices': created_notices,
+        'created_items':   created_items,
+        'message':         (
+            f'Импортировано: {created_notices} извещений, '
+            f'{created_items} объектов'
+        ),
+    })
+
+
+# ──────────────────────────────────────────────
+# Шаблон Excel для скачивания
+# ──────────────────────────────────────────────
+def notice_import_template(request):
+    """Скачать пустой шаблон Excel."""
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = 'Извещения'
+
+    headers = [
+        'Адрес', 'Кадастровый номер', 'Заказчик',
+        'Договор', 'Газета', 'Дата выпуска', 'Дата согласования',
+    ]
+    ws.append(headers)
+
+    # Пример строки
+    ws.append([
+        'РФ, ЛНР, г. Луганск, ул. Примерная, 1',
+        '95:19:0102065:1830',
+        'физ. лицо',
+        '01/КЗР-123 от 01.01.2025',
+        'Республика',
+        '04.09.2025',
+        '06.10.2025',
+    ])
+
+    # ── Стиль заголовков ──────────────────────
+    header_font = Font(bold=True, color='FFFFFF')
+    header_fill = PatternFill('solid', fgColor='4472C4')
+
+    for cell in ws[1]:          # ws[[1]](#annotation-142646-0) — первая строка, правильный синтаксис
+        cell.font = header_font
+        cell.fill = header_fill
+
+    # ── Ширина колонок ────────────────────────
+    col_widths = [50, 25, 20, 30, 15, 15, 20]
+    for i, width in enumerate(col_widths, start=1):
+        ws.column_dimensions[get_column_letter(i)].width = width
+
+    response = HttpResponse(
+        content_type=(
+            'application/vnd.openxmlformats-officedocument'
+            '.spreadsheetml.sheet'
+        )
+    )
+    response['Content-Disposition'] = (
+        'attachment; filename="notice_template.xlsx"'
+    )
+    wb.save(response)
+    return response
