@@ -315,31 +315,18 @@ def notice_export_word(request, pk):
         'в отношении земельных участков, расположенных по адресу '
         '(местонахождение):')
 
-    # ── Список объектов (с номерами договоров) ──
+    # ── Список объектов ───────────────────────
     for i, it in enumerate(items, 1):
         p = para(left_indent=1.25, first_indent=0,
                  space_before=2, space_after=2)
         parts = []
-        
-        # Адрес
         if it.address:
             parts.append(it.address)
-        
-        # Кадастровый номер
         if it.cadastral_number:
             parts.append(f'кадастровый номер {it.cadastral_number}')
-        
-        # Договор (выводим даже если пустой)
-        if it.contract is not None:
-            contract_value = it.contract if it.contract else ''
-            parts.append(f'Договор: {contract_value}')
-        
-        # Заказчик
         if it.customer:
             parts.append(f'заказчик: {it.customer}')
-        
-        # Собираем строку
-        line = ', '.join(parts) + ';'
+        line = ', '.join(parts) + (';' if parts else '')
         run(p, f'{i}.\t{line}')
 
     # ── Дата собрания ─────────────────────────
