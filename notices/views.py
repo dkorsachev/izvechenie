@@ -10,6 +10,7 @@ from django.db.models import Q
 from django.http import JsonResponse, HttpResponse
 from django.shortcuts import render, get_object_or_404, redirect
 from django.views.decorators.http import require_POST, require_GET
+from django.views.decorators.csrf import csrf_exempt
 from django.contrib import messages
 
 from docx import Document
@@ -38,14 +39,14 @@ def highlight(text, query):
 # Список
 # ──────────────────────────────────────────────
 def notice_list(request):
-    form  = SearchForm(request.GET or None)
-    qs    = Notice.objects.prefetch_related('items').all()
+    form = SearchForm(request.GET or None)
+    qs = Notice.objects.prefetch_related('items').all()
     query = ''
 
     if form.is_valid():
-        query      = form.cleaned_data.get('q', '')
-        date_from  = form.cleaned_data.get('date_from')
-        date_to    = form.cleaned_data.get('date_to')
+        query = form.cleaned_data.get('q', '')
+        date_from = form.cleaned_data.get('date_from')
+        date_to = form.cleaned_data.get('date_to')
         date_field = form.cleaned_data.get('date_field') or 'issue_date'
 
         if query:
@@ -67,22 +68,22 @@ def notice_list(request):
         items_hl = []
         for it in n.items.all():
             items_hl.append({
-                'address':          highlight(it.address, query),
+                'address': highlight(it.address, query),
                 'cadastral_number': highlight(it.cadastral_number, query),
-                'customer':         highlight(it.customer, query),
-                'contract':         highlight(it.contract, query),
+                'customer': highlight(it.customer, query),
+                'contract': highlight(it.contract, query),
             })
         notices.append({
-            'obj':             n,
-            'newspaper':       highlight(n.newspaper, query),
-            'items':           items_hl,
+            'obj': n,
+            'newspaper': highlight(n.newspaper, query),
+            'items': items_hl,
             'approval_status': n.approval_status,
         })
 
     return render(request, 'notices/list.html', {
-        'notices':     notices,
+        'notices': notices,
         'search_form': form,
-        'query':       query,
+        'query': query,
     })
 
 
@@ -91,19 +92,41 @@ def notice_list(request):
 # ──────────────────────────────────────────────
 def notice_create(request):
     if request.method == 'POST':
-        form    = NoticeForm(request.POST)
+        form = NoticeForm(request.POST)
         formset = NoticeItemFormSet(request.POST)
+        
         if form.is_valid() and formset.is_valid():
-            notice           = form.save()
+            notice = form.save()
             formset.instance = notice
             formset.save()
+            
+            # Проверяем, AJAX ли запрос
+            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                return JsonResponse({'success': True, 'message': 'Извещение добавлено'})
+            
             messages.success(request, 'Извещение добавлено.')
             return redirect('notice_list')
-        errors = {**form.errors}
-        for i, fe in enumerate(formset.errors):
-            if fe:
-                errors[f'Строка {i+1}'] = list(fe.values())
-        return JsonResponse({'success': False, 'errors': errors}, status=400)
+        
+        # Если есть ошибки
+        errors = {}
+        
+        # Добавляем ошибки формы
+        for field, error_list in form.errors.items():
+            errors[field] = error_list
+        
+        # Добавляем ошибки formset
+        for i, formset_error in enumerate(formset.errors):
+            if formset_error:
+                for field, error_list in formset_error.items():
+                    errors[f'item_{i}_{field}'] = error_list
+        
+        # Для AJAX запроса возвращаем JSON с ошибками
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return JsonResponse({'success': False, 'errors': errors}, status=400)
+        
+        messages.error(request, 'Пожалуйста, исправьте ошибки')
+        return redirect('notice_list')
+    
     return redirect('notice_list')
 
 
@@ -112,18 +135,25 @@ def notice_create(request):
 # ──────────────────────────────────────────────
 @require_GET
 def notice_get(request, pk):
-    notice = get_object_or_404(Notice, pk=pk)
-    items  = list(notice.items.values(
-        'id', 'address', 'fias_id', 'region', 'city',
-        'street', 'house', 'cadastral_number', 'customer', 'contract', 'order'
-    ))
-    return JsonResponse({
-        'id':            notice.pk,
-        'newspaper':     notice.newspaper,
-        'issue_date':    notice.issue_date.isoformat()    if notice.issue_date    else '',
-        'approval_date': notice.approval_date.isoformat() if notice.approval_date else '',
-        'items':         items,
-    })
+    try:
+        notice = get_object_or_404(Notice, pk=pk)
+        items = list(notice.items.values(
+            'id', 'address', 'fias_id', 'region', 'city',
+            'street', 'house', 'cadastral_number', 'customer', 'contract', 'order'
+        ))
+        return JsonResponse({
+            'success': True,
+            'id': notice.pk,
+            'newspaper': notice.newspaper or '',
+            'issue_date': notice.issue_date.isoformat() if notice.issue_date else '',
+            'approval_date': notice.approval_date.isoformat() if notice.approval_date else '',
+            'items': items,
+        })
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'error': str(e)
+        }, status=500)
 
 
 # ──────────────────────────────────────────────
@@ -133,27 +163,49 @@ def notice_edit(request, pk):
     notice = get_object_or_404(Notice, pk=pk)
 
     if request.method == 'POST':
-        form    = NoticeForm(request.POST, instance=notice)
+        form = NoticeForm(request.POST, instance=notice)
         formset = NoticeItemFormSet(request.POST, instance=notice)
 
         if form.is_valid() and formset.is_valid():
             form.save()
-            notice.items.all().delete()
+            
+            # Сохраняем объекты
             instances = formset.save(commit=False)
             for obj in instances:
                 obj.notice = notice
                 obj.save()
+            
+            # Удаляем помеченные объекты
             for obj in formset.deleted_objects:
                 if obj.pk:
                     obj.delete()
+            
+            # Проверяем, AJAX ли запрос
+            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                return JsonResponse({'success': True, 'message': 'Извещение обновлено'})
+            
             messages.success(request, 'Извещение обновлено.')
             return redirect('notice_list')
 
-        errors = {**form.errors}
-        for i, fe in enumerate(formset.errors):
-            if fe:
-                errors[f'Строка {i + 1}'] = list(fe.values())
-        return JsonResponse({'success': False, 'errors': errors}, status=400)
+        # Если есть ошибки
+        errors = {}
+        
+        # Добавляем ошибки формы
+        for field, error_list in form.errors.items():
+            errors[field] = error_list
+        
+        # Добавляем ошибки formset
+        for i, formset_error in enumerate(formset.errors):
+            if formset_error:
+                for field, error_list in formset_error.items():
+                    errors[f'item_{i}_{field}'] = error_list
+        
+        # Для AJAX запроса возвращаем JSON с ошибками
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return JsonResponse({'success': False, 'errors': errors}, status=400)
+        
+        messages.error(request, 'Пожалуйста, исправьте ошибки')
+        return redirect('notice_list')
 
     return redirect('notice_list')
 
@@ -163,9 +215,20 @@ def notice_edit(request, pk):
 # ──────────────────────────────────────────────
 @require_POST
 def notice_delete(request, pk):
-    get_object_or_404(Notice, pk=pk).delete()
-    messages.success(request, 'Извещение удалено.')
-    return redirect('notice_list')
+    try:
+        notice = get_object_or_404(Notice, pk=pk)
+        notice.delete()
+        
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return JsonResponse({'success': True, 'message': 'Извещение удалено'})
+        
+        messages.success(request, 'Извещение удалено.')
+        return redirect('notice_list')
+    except Exception as e:
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return JsonResponse({'success': False, 'error': str(e)}, status=500)
+        messages.error(request, 'Ошибка при удалении')
+        return redirect('notice_list')
 
 
 # ──────────────────────────────────────────────
@@ -196,12 +259,12 @@ def fias_suggest(request):
         for s in resp.json().get('suggestions', []):
             d = s.get('data', {})
             out.append({
-                'value':   s.get('value', ''),
+                'value': s.get('value', ''),
                 'fias_id': d.get('fias_id', '') or d.get('house_fias_id', ''),
-                'region':  d.get('region_with_type', ''),
-                'city':    d.get('city_with_type', '') or d.get('settlement_with_type', ''),
-                'street':  d.get('street_with_type', ''),
-                'house':   d.get('house', ''),
+                'region': d.get('region_with_type', ''),
+                'city': d.get('city_with_type', '') or d.get('settlement_with_type', ''),
+                'street': d.get('street_with_type', ''),
+                'house': d.get('house', ''),
             })
         return JsonResponse({'suggestions': out})
     except Exception as e:
@@ -219,17 +282,17 @@ _MONTHS_RU = [
 
 def notice_export_word(request, pk):
     notice = get_object_or_404(Notice, pk=pk)
-    items  = list(notice.items.all())
+    items = list(notice.items.all())
 
     doc = Document()
 
     # ── Страница ──────────────────────────────
-    sec               = doc.sections[0]
-    sec.page_width    = Mm(210)
-    sec.page_height   = Mm(297)
-    sec.left_margin   = Cm(3.0)
-    sec.right_margin  = Cm(1.5)
-    sec.top_margin    = Cm(2.0)
+    sec = doc.sections[0]
+    sec.page_width = Mm(210)
+    sec.page_height = Mm(297)
+    sec.left_margin = Cm(3.0)
+    sec.right_margin = Cm(1.5)
+    sec.top_margin = Cm(2.0)
     sec.bottom_margin = Cm(2.0)
 
     sec.header.is_linked_to_previous = False
@@ -240,9 +303,9 @@ def notice_export_word(request, pk):
 
     # ── Базовый стиль ─────────────────────────
     ns = doc.styles['Normal']
-    ns.font.name      = 'Times New Roman'
-    ns.font.size      = Pt(12)
-    ns.font.bold      = False
+    ns.font.name = 'Times New Roman'
+    ns.font.size = Pt(12)
+    ns.font.bold = False
     ns.font.color.rgb = RGBColor(0, 0, 0)
 
     BLACK = RGBColor(0, 0, 0)
@@ -250,16 +313,16 @@ def notice_export_word(request, pk):
     def run(para, text, bold=False, underline=False,
             size=12, name='Times New Roman'):
         r = para.add_run(text)
-        r.font.name      = name
-        r.font.size      = Pt(size)
-        r.bold           = bold
-        r.italic         = False
-        r.underline      = underline
+        r.font.name = name
+        r.font.size = Pt(size)
+        r.bold = bold
+        r.italic = False
+        r.underline = underline
         r.font.color.rgb = BLACK
         try:
-            rPr    = r._element.get_or_add_rPr()
+            rPr = r._element.get_or_add_rPr()
             rFonts = rPr.get_or_add_rFonts()
-            rFonts.set(qn('w:cs'),       name)
+            rFonts.set(qn('w:cs'), name)
             rFonts.set(qn('w:eastAsia'), name)
         except Exception:
             pass
@@ -268,11 +331,11 @@ def notice_export_word(request, pk):
     def para(align=WD_ALIGN_PARAGRAPH.JUSTIFY,
              first_indent=None, left_indent=None,
              space_before=0, space_after=0, line_spacing=14):
-        p   = doc.add_paragraph()
+        p = doc.add_paragraph()
         fmt = p.paragraph_format
-        fmt.alignment    = align
+        fmt.alignment = align
         fmt.space_before = Pt(space_before)
-        fmt.space_after  = Pt(space_after)
+        fmt.space_after = Pt(space_after)
         fmt.line_spacing = Pt(line_spacing)
         if first_indent is not None:
             fmt.first_line_indent = Cm(first_indent)
@@ -286,7 +349,7 @@ def notice_export_word(request, pk):
     def fmt_date_short(d):
         return d.strftime('%d.%m.%Y')
 
-    PLACEHOLDER      = '__.__.____'
+    PLACEHOLDER = '__.__.____'
     PLACEHOLDER_LONG = '__ ________ ____'
 
     # ── Заголовок ─────────────────────────────
@@ -387,7 +450,7 @@ def notice_export_word(request, pk):
     buf.seek(0)
 
     fname = f'izveshenie_{notice.pk}.docx'
-    resp  = HttpResponse(
+    resp = HttpResponse(
         buf.read(),
         content_type=(
             'application/vnd.openxmlformats-officedocument'
@@ -453,14 +516,14 @@ def notice_import(request):
             headers[str(cell.value).strip().lower()] = col_idx
 
     COLUMN_MAP = {
-        'address':          ['адрес'],
+        'address': ['адрес'],
         'cadastral_number': ['кадастровый номер', 'кадастровыйномер',
                              'кад. номер', 'кад.номер'],
-        'customer':         ['заказчик'],
-        'contract':         ['договор'],
-        'newspaper':        ['газета'],
-        'issue_date':       ['дата выпуска', 'датавыпуска'],
-        'approval_date':    ['дата согласования', 'датасогласования'],
+        'customer': ['заказчик'],
+        'contract': ['договор'],
+        'newspaper': ['газета'],
+        'issue_date': ['дата выпуска', 'датавыпуска'],
+        'approval_date': ['дата согласования', 'датасогласования'],
     }
 
     def find_col(key):
@@ -480,12 +543,10 @@ def notice_import(request):
         )
 
     # ── Читаем строки с "протяжкой" пустых значений ──────
-    # Газета, дата выпуска, дата согласования — берём из предыдущей строки
-    # если в текущей пусто (fill-down логика)
     rows_data = []
 
-    prev_newspaper     = ''
-    prev_issue_date    = None
+    prev_newspaper = ''
+    prev_issue_date = None
     prev_approval_date = None
 
     for row in ws.iter_rows(min_row=2, values_only=True):
@@ -503,10 +564,10 @@ def notice_import(request):
                 return None
             return parse_date(_row[idx])
 
-        address          = get_str('address')
+        address = get_str('address')
         cadastral_number = get_str('cadastral_number')
-        customer         = get_str('customer')
-        contract         = get_str('contract')
+        customer = get_str('customer')
+        contract = get_str('contract')
 
         # Пропускаем полностью пустые строки
         if not any([address, cadastral_number, customer]):
@@ -514,8 +575,8 @@ def notice_import(request):
 
         # Газета и даты: если есть в текущей строке — обновляем prev,
         # если нет — используем предыдущее значение
-        newspaper     = get_str('newspaper')
-        issue_date    = get_date('issue_date')
+        newspaper = get_str('newspaper')
+        issue_date = get_date('issue_date')
         approval_date = get_date('approval_date')
 
         if newspaper:
@@ -534,13 +595,13 @@ def notice_import(request):
             approval_date = prev_approval_date
 
         rows_data.append({
-            'address':          address,
+            'address': address,
             'cadastral_number': cadastral_number,
-            'customer':         customer,
-            'contract':         contract,
-            'newspaper':        newspaper,
-            'issue_date':       issue_date,
-            'approval_date':    approval_date,
+            'customer': customer,
+            'contract': contract,
+            'newspaper': newspaper,
+            'issue_date': issue_date,
+            'approval_date': approval_date,
         })
 
     if not rows_data:
@@ -550,51 +611,50 @@ def notice_import(request):
         )
 
     # ── Группируем в извещения ────────────────
-    # Новое извещение = смена газеты ИЛИ даты выпуска ИЛИ даты согласования
     groups = OrderedDict()
     for r in rows_data:
         key = (
             r['newspaper'] or '',
-            str(r['issue_date']    or ''),
+            str(r['issue_date'] or ''),
             str(r['approval_date'] or ''),
         )
         if key not in groups:
             groups[key] = {
-                'newspaper':     r['newspaper'],
-                'issue_date':    r['issue_date'],
+                'newspaper': r['newspaper'],
+                'issue_date': r['issue_date'],
                 'approval_date': r['approval_date'],
-                'items':         [],
+                'items': [],
             }
         groups[key]['items'].append(r)
 
     # ── Сохраняем в БД ────────────────────────
     created_notices = 0
-    created_items   = 0
+    created_items = 0
 
     for group in groups.values():
         notice = Notice.objects.create(
-            newspaper=     group['newspaper']     or '',
-            issue_date=    group['issue_date']    or None,
-            approval_date= group['approval_date'] or None,
+            newspaper=group['newspaper'] or '',
+            issue_date=group['issue_date'] or None,
+            approval_date=group['approval_date'] or None,
         )
         created_notices += 1
 
         for order, item in enumerate(group['items']):
             NoticeItem.objects.create(
-                notice=           notice,
-                address=          item['address'],
-                cadastral_number= item['cadastral_number'],
-                customer=         item['customer'],
-                contract=         item['contract'],
-                order=            order,
+                notice=notice,
+                address=item['address'],
+                cadastral_number=item['cadastral_number'],
+                customer=item['customer'],
+                contract=item['contract'],
+                order=order,
             )
             created_items += 1
 
     return JsonResponse({
-        'success':         True,
+        'success': True,
         'created_notices': created_notices,
-        'created_items':   created_items,
-        'message':         (
+        'created_items': created_items,
+        'message': (
             f'Импортировано: {created_notices} извещений, '
             f'{created_items} объектов'
         ),
@@ -631,7 +691,7 @@ def notice_import_template(request):
     header_font = Font(bold=True, color='FFFFFF')
     header_fill = PatternFill('solid', fgColor='4472C4')
 
-    for cell in ws[1]:          # ws[[1]](#annotation-142646-0) — первая строка, правильный синтаксис
+    for cell in ws[1]:
         cell.font = header_font
         cell.fill = header_fill
 

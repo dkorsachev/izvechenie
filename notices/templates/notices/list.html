@@ -25,19 +25,26 @@
       <div class="row g-2 align-items-end">
         <div class="col-12 col-md-4">
           <label class="form-label form-label-sm mb-1">Поиск</label>
-          {{ search_form.q }}
+          <input type="text" name="q" class="form-control form-control-sm" 
+                 value="{{ search_form.q.value|default:'' }}" 
+                 placeholder="Поиск по газете, адресу, кадастровому номеру...">
         </div>
         <div class="col-6 col-md-2">
           <label class="form-label form-label-sm mb-1">Поле даты</label>
-          {{ search_form.date_field }}
+          <select name="date_field" class="form-select form-select-sm">
+            <option value="issue_date" {% if search_form.date_field.value == 'issue_date' %}selected{% endif %}>Дата выпуска</option>
+            <option value="approval_date" {% if search_form.date_field.value == 'approval_date' %}selected{% endif %}>Дата согласования</option>
+          </select>
         </div>
         <div class="col-6 col-md-2">
           <label class="form-label form-label-sm mb-1">С даты</label>
-          {{ search_form.date_from }}
+          <input type="date" name="date_from" class="form-control form-control-sm" 
+                 value="{{ search_form.date_from.value|default:'' }}">
         </div>
         <div class="col-6 col-md-2">
           <label class="form-label form-label-sm mb-1">По дату</label>
-          {{ search_form.date_to }}
+          <input type="date" name="date_to" class="form-control form-control-sm" 
+                 value="{{ search_form.date_to.value|default:'' }}">
         </div>
         <div class="col-6 col-md-2 d-flex gap-1">
           <button type="submit" class="btn btn-primary btn-sm w-100">
@@ -136,19 +143,19 @@
           {% endif %}
         </td>
 
-        <td>
+        <td class="text-nowrap">
           <div class="btn-group btn-group-sm">
-            <button class="btn btn-outline-primary" title="Редактировать"
-                    onclick="openEditModal({{ item.obj.pk }})">
+            <button class="btn btn-outline-primary edit-btn" title="Редактировать"
+                    data-id="{{ item.obj.pk }}">
               <i class="bi bi-pencil"></i>
             </button>
             <a class="btn btn-outline-success"
-               href="{% url 'notice_export' item.obj.pk %}"
-               title="Экспорт Word">
+              href="{% url 'notice_export' item.obj.pk %}"
+              title="Экспорт Word">
               <i class="bi bi-file-earmark-word"></i>
             </a>
-            <button class="btn btn-outline-danger" title="Удалить"
-                    onclick="confirmDelete({{ item.obj.pk }})">
+            <button class="btn btn-outline-danger delete-btn" title="Удалить"
+                    data-id="{{ item.obj.pk }}">
               <i class="bi bi-trash"></i>
             </button>
           </div>
@@ -280,15 +287,28 @@
                 <label class="form-label fw-semibold mb-1">
                   <i class="bi bi-calendar-event me-1"></i>Дата выпуска
                 </label>
-                <input type="date" name="issue_date" id="id_issue_date"
-                       class="form-control form-control-sm">
+                <div class="input-group input-group-sm">
+                  <input type="date" name="issue_date" id="id_issue_date"
+                         class="form-control">
+                  <button type="button" class="btn btn-outline-info" 
+                          id="setApprovalDateBtn" title="Установить дату согласования через 30 дней">
+                    <i class="bi bi-calendar-plus me-1"></i>+30 дней
+                  </button>
+                </div>
+                <small class="text-muted">Выберите дату и нажмите +30 дней</small>
               </div>
               <div class="col-6 col-md-4">
                 <label class="form-label fw-semibold mb-1">
                   <i class="bi bi-calendar-check me-1"></i>Дата согласования
                 </label>
-                <input type="date" name="approval_date" id="id_approval_date"
-                       class="form-control form-control-sm">
+                <div class="input-group input-group-sm">
+                  <input type="date" name="approval_date" id="id_approval_date"
+                         class="form-control">
+                  <button type="button" class="btn btn-outline-danger" 
+                          id="clearApprovalDateBtn" title="Очистить дату согласования">
+                    <i class="bi bi-x-lg"></i>
+                  </button>
+                </div>
               </div>
             </div>
           </div>
@@ -368,79 +388,32 @@
   </div>
 </div>
 
-{% endblock %}
-
 <style>
+  /* Легенда */
+  .legend-box {
+    display: inline-block;
+    width: 16px;
+    height: 16px;
+    border-radius: 3px;
+    margin-right: 6px;
+    vertical-align: middle;
+  }
+  
+  /* Статусы строк */
+  .status-overdue { background-color: #f8d7da; }
+  .status-critical { background-color: #f5c6cb; }
+  .status-warning { background-color: #fff3cd; }
+  .status-attention { background-color: #d1ecf1; }
+  .status-ok { background-color: #d4edda; }
+  
   /* Таблица строго по ширине окна */
-  .table-responsive {
-    width: 100%;
-    overflow-x: auto;
-    /* Скролл всегда виден снизу */
-    overflow-y: visible;
-  }
-
-  /* Таблица не шире контейнера */
-  .table-responsive .table {
-    table-layout: fixed;
-    width: 100%;
-    min-width: 700px;
-  }
-
-  /* Колонка #  */
-  .table-responsive .table th:nth-child(1),
-  .table-responsive .table td:nth-child(1) {
-    width: 40px;
-    white-space: nowrap;
-  }
-
-  /* Колонка Объекты — занимает всё остальное место */
-  .table-responsive .table th:nth-child(2),
-  .table-responsive .table td:nth-child(2) {
-    width: auto;
-    white-space: normal;
-    word-break: break-word;
-    overflow-wrap: break-word;
-  }
-
-  /* Колонка Газета */
-  .table-responsive .table th:nth-child(3),
-  .table-responsive .table td:nth-child(3) {
-    width: 150px;
-    white-space: normal;
-    word-break: break-word;
-  }
-
-  /* Дата выпуска */
-  .table-responsive .table th:nth-child(4),
-  .table-responsive .table td:nth-child(4) {
-    width: 100px;
-    white-space: nowrap;
-  }
-
-  /* Дата согласования */
-  .table-responsive .table th:nth-child(5),
-  .table-responsive .table td:nth-child(5) {
-    width: 120px;
-    white-space: nowrap;
-  }
-
-  /* Действия */
-  .table-responsive .table th:nth-child(6),
-  .table-responsive .table td:nth-child(6) {
-    width: 100px;
-    white-space: nowrap;
-  }
-
-  /* Скролл закреплён снизу — липкая полоса */
   .table-scroll-wrapper {
     position: relative;
     overflow-x: auto;
     overflow-y: visible;
-    /* Показывать скролл всегда */
     scrollbar-width: thin;
   }
-
-  /* Webkit браузеры — тонкий скролл */
+  
   .table-scroll-wrapper::-webkit-scrollbar {
     height: 6px;
   }
@@ -455,7 +428,14 @@
   .table-scroll-wrapper::-webkit-scrollbar-thumb:hover {
     background: #666;
   }
+  
+  /* Увеличенный отступ для кнопок +30 дней */
+  .input-group-sm .btn {
+    white-space: nowrap;
+  }
 </style>
+
+{% endblock %}
 
 {% block scripts %}
 <script>
@@ -470,118 +450,497 @@
   };
 </script>
 
-{# Временно — весь notices.js inline чтобы исключить проблему пути #}
 <script src="{% static 'notices/js/notices.js' %}"></script>
 
+<!-- Дополнительный JavaScript -->
 <script>
-  // ВРЕМЕННАЯ ЗАГЛУШКА — если notices.js не грузится
-  if (typeof doImport === 'undefined') {
-    console.error('notices.js НЕ загружен! Используем inline версию.');
-
-    function doImport() {
-      const fileInput = document.getElementById('importFile');
-      const resultDiv = document.getElementById('importResult');
-      const btn       = document.getElementById('importBtn');
-      const spinner   = document.getElementById('importSpinner');
-
-      if (!fileInput || !fileInput.files.length) {
-        alert('Выберите файл Excel');
-        return;
+  // ========== ФУНКЦИИ ДЛЯ ДАТЫ ==========
+  
+  function calculateApprovalDate(issueDate) {
+    if (!issueDate) return '';
+    const date = new Date(issueDate);
+    date.setDate(date.getDate() + 30);
+    return date.toISOString().split('T')[0];
+  }
+  
+  function setApprovalDatePlus30() {
+    const issueDateField = document.getElementById('id_issue_date');
+    const approvalDateField = document.getElementById('id_approval_date');
+    
+    if (issueDateField && approvalDateField) {
+      const issueDate = issueDateField.value;
+      if (issueDate) {
+        const approvalDate = calculateApprovalDate(issueDate);
+        approvalDateField.value = approvalDate;
+        showToastMessage('Дата согласования установлена через 30 дней от даты выпуска', 'success');
+      } else {
+        showToastMessage('Сначала выберите дату выпуска газеты', 'warning');
       }
-
-      const formData = new FormData();
-      formData.append('excel_file', fileInput.files[0]);
-
-      btn.disabled = true;
-      if (spinner) spinner.classList.remove('d-none');
-      if (resultDiv) resultDiv.classList.add('d-none');
-
-      fetch(window.NOTICES_CONFIG.importUrl, {
-        method: 'POST',
-        headers: { 'X-CSRFToken': window.NOTICES_CONFIG.csrfToken },
-        body: formData,
-      })
-        .then(r => r.json())
-        .then(data => {
-          if (resultDiv) {
-            resultDiv.classList.remove('d-none');
-            if (data.success) {
-              resultDiv.className = 'alert alert-success mb-3';
-              resultDiv.innerHTML = `<i class="bi bi-check-circle me-1"></i>${data.message}`;
-              setTimeout(() => location.reload(), 1500);
-            } else {
-              resultDiv.className = 'alert alert-danger mb-3';
-              resultDiv.innerHTML = `<i class="bi bi-x-circle me-1"></i>${data.error}`;
-            }
-          }
-        })
-        .catch(err => {
-          if (resultDiv) {
-            resultDiv.classList.remove('d-none');
-            resultDiv.className = 'alert alert-danger mb-3';
-            resultDiv.innerHTML = `<i class="bi bi-x-circle me-1"></i>Ошибка: ${err}`;
-          }
-        })
-        .finally(() => {
-          btn.disabled = false;
-          if (spinner) spinner.classList.add('d-none');
-        });
     }
   }
-
-  window.addEventListener('load', function() {
-    const btn = document.getElementById('importBtn');
-    if (btn) btn.addEventListener('click', doImport);
-  });
-</script>
-
-<script>
-  // Липкий горизонтальный скролл — дублирует полосу снизу страницы
-  (function() {
-    const wrapper = document.querySelector('.table-scroll-wrapper');
-    if (!wrapper) return;
-
-    // Создаём фиктивный скролл внизу экрана
-    const stickyScroll = document.createElement('div');
-    stickyScroll.style.cssText = `
-      position: fixed;
-      bottom: 0;
-      left: 0;
-      right: 0;
-      height: 12px;
-      overflow-x: auto;
-      overflow-y: hidden;
-      z-index: 1000;
-      background: #f8f9fa;
-      border-top: 1px solid #dee2e6;
-    `;
-
-    const stickyInner = document.createElement('div');
-    stickyScroll.appendChild(stickyInner);
-    document.body.appendChild(stickyScroll);
-
-    // Синхронизируем ширину и позицию скролла
-    function syncWidth() {
-      stickyInner.style.width = wrapper.scrollWidth + 'px';
-      stickyInner.style.height = '1px';
-
-      // Показываем только если таблица шире экрана
-      stickyScroll.style.display =
-        wrapper.scrollWidth > wrapper.clientWidth ? 'block' : 'none';
+  
+  function clearApprovalDate() {
+    const approvalDateField = document.getElementById('id_approval_date');
+    if (approvalDateField) {
+      approvalDateField.value = '';
+      showToastMessage('Дата согласования очищена', 'info');
     }
-
-    // Синхронизация прокрутки
-    stickyScroll.addEventListener('scroll', () => {
-      wrapper.scrollLeft = stickyScroll.scrollLeft;
+  }
+  
+  function showToastMessage(message, type) {
+    if (typeof window.showToast === 'function') {
+      window.showToast(message, type);
+    } else {
+      const toast = document.createElement('div');
+      toast.className = `alert alert-${type === 'success' ? 'success' : (type === 'warning' ? 'warning' : 'info')} position-fixed`;
+      toast.style.cssText = 'top: 20px; right: 20px; z-index: 9999; min-width: 300px;';
+      toast.innerHTML = `<i class="bi bi-${type === 'success' ? 'check-circle' : (type === 'warning' ? 'exclamation-triangle' : 'info-circle')} me-2"></i>${message}`;
+      document.body.appendChild(toast);
+      setTimeout(() => toast.remove(), 3000);
+    }
+  }
+  
+  function autoFillApprovalDate() {
+    const issueDateField = document.getElementById('id_issue_date');
+    const approvalDateField = document.getElementById('id_approval_date');
+    
+    if (issueDateField && approvalDateField) {
+      issueDateField.addEventListener('change', function() {
+        if (!approvalDateField.value) {
+          const approvalDate = calculateApprovalDate(this.value);
+          if (approvalDate) {
+            approvalDateField.value = approvalDate;
+            showToastMessage('Дата согласования автоматически установлена через 30 дней', 'success');
+          }
+        }
+      });
+    }
+  }
+  
+  // ========== ФУНКЦИИ ДЛЯ РАБОТЫ С ОБЪЕКТАМИ ==========
+  
+  function addItemRow(itemData, index) {
+    const container = document.getElementById('itemsContainer');
+    if (!container) return;
+    
+    const itemIndex = index !== undefined ? index : container.children.length;
+    const currentId = Date.now() + Math.random();
+    
+    const address = itemData ? (itemData.address || '') : '';
+    const cadastral_number = itemData ? (itemData.cadastral_number || '') : '';
+    const customer = itemData ? (itemData.customer || '') : '';
+    const contract = itemData ? (itemData.contract || '') : '';
+    const itemId = itemData && itemData.id ? itemData.id : '';
+    
+    const itemHtml = `
+      <div class="card mb-2 item-card" data-item-id="${currentId}">
+        <div class="card-body py-2">
+          <div class="d-flex justify-content-between align-items-start mb-2">
+            <strong class="text-primary">Объект ${itemIndex + 1}</strong>
+            <button type="button" class="btn btn-sm btn-outline-danger" onclick="removeItemRow(this)">
+              <i class="bi bi-trash"></i>
+            </button>
+          </div>
+          <div class="row g-2">
+            <div class="col-12">
+              <label class="form-label small fw-semibold mb-0">Адрес</label>
+              <textarea name="items-${itemIndex}-address" class="form-control form-control-sm" rows="2">${escapeHtml(address)}</textarea>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label small fw-semibold mb-0">Кадастровый номер</label>
+              <input type="text" name="items-${itemIndex}-cadastral_number" class="form-control form-control-sm" value="${escapeHtml(cadastral_number)}">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label small fw-semibold mb-0">Заказчик</label>
+              <input type="text" name="items-${itemIndex}-customer" class="form-control form-control-sm" value="${escapeHtml(customer)}">
+            </div>
+            <div class="col-12">
+              <label class="form-label small fw-semibold mb-0">Договор</label>
+              <input type="text" name="items-${itemIndex}-contract" class="form-control form-control-sm" value="${escapeHtml(contract)}">
+            </div>
+          </div>
+          <input type="hidden" name="items-${itemIndex}-order" value="${itemIndex}">
+          ${itemId ? `<input type="hidden" name="items-${itemIndex}-id" value="${itemId}">` : ''}
+        </div>
+      </div>
+    `;
+    
+    container.insertAdjacentHTML('beforeend', itemHtml);
+    updateItemIndices();
+    
+    const totalForms = document.getElementById('id_items-TOTAL_FORMS');
+    if (totalForms) {
+      totalForms.value = container.children.length;
+    }
+  }
+  
+  function removeItemRow(btn) {
+    const card = btn.closest('.item-card');
+    if (card) {
+      card.remove();
+      updateItemIndices();
+      
+      const container = document.getElementById('itemsContainer');
+      const totalForms = document.getElementById('id_items-TOTAL_FORMS');
+      if (totalForms && container) {
+        totalForms.value = container.children.length;
+      }
+    }
+  }
+  
+  function updateItemIndices() {
+    const items = document.querySelectorAll('.item-card');
+    items.forEach((item, idx) => {
+      const title = item.querySelector('.text-primary');
+      if (title) title.textContent = `Объект ${idx + 1}`;
+      
+      item.querySelectorAll('[name*="items-"]').forEach(input => {
+        const oldName = input.getAttribute('name');
+        if (oldName) {
+          const newName = oldName.replace(/items-\d+-/, `items-${idx}-`);
+          input.setAttribute('name', newName);
+        }
+      });
     });
-    wrapper.addEventListener('scroll', () => {
-      stickyScroll.scrollLeft = wrapper.scrollLeft;
+  }
+  
+  function escapeHtml(text) {
+    if (!text) return '';
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+  }
+  
+  function collapseAll() {
+    console.log('Collapse all');
+  }
+  
+  function expandAll() {
+    console.log('Expand all');
+  }
+  
+  // ========== ФУНКЦИИ ДЛЯ ОТКРЫТИЯ МОДАЛЬНЫХ ОКОН ==========
+  
+  function openAddModal() {
+    console.log('Opening add modal');
+    
+    document.getElementById('id_newspaper').value = '';
+    document.getElementById('id_issue_date').value = '';
+    document.getElementById('id_approval_date').value = '';
+    
+    const form = document.getElementById('noticeForm');
+    form.action = window.NOTICES_CONFIG.createUrl;
+    
+    const modalTitle = document.getElementById('modalTitleText');
+    if (modalTitle) modalTitle.innerHTML = '<i class="bi bi-plus-circle me-2"></i>Добавить извещение';
+    
+    const itemsContainer = document.getElementById('itemsContainer');
+    if (itemsContainer) {
+      itemsContainer.innerHTML = '';
+      addItemRow(null, 0);
+    }
+    
+    const totalForms = document.getElementById('id_items-TOTAL_FORMS');
+    if (totalForms) totalForms.value = 1;
+    
+    const modal = new bootstrap.Modal(document.getElementById('noticeModal'));
+    modal.show();
+  }
+  
+  function openEditModal(noticeId) {
+      console.log('Opening edit modal for ID:', noticeId);
+      
+      if (!noticeId) {
+          console.error('No notice ID provided');
+          alert('Ошибка: не указан ID извещения');
+          return;
+      }
+      
+      const modalTitle = document.getElementById('modalTitleText');
+      if (modalTitle) modalTitle.innerHTML = '<i class="bi bi-hourglass-split me-2"></i>Загрузка...';
+      
+      // Используем URL из конфига
+      const getUrl = window.NOTICES_CONFIG.getUrl.replace('0', noticeId);
+      console.log('Fetching from URL:', getUrl);
+      
+      fetch(getUrl, {
+          method: 'GET',
+          headers: {
+              'X-Requested-With': 'XMLHttpRequest',
+          }
+      })
+      .then(response => {
+          console.log('Response status:', response.status);
+          if (!response.ok) {
+              throw new Error(`HTTP error! status: ${response.status}`);
+          }
+          return response.json();
+      })
+      .then(data => {
+          console.log('Notice data loaded:', data);
+          
+          document.getElementById('id_newspaper').value = data.newspaper || '';
+          document.getElementById('id_issue_date').value = data.issue_date || '';
+          document.getElementById('id_approval_date').value = data.approval_date || '';
+          
+          const form = document.getElementById('noticeForm');
+          form.action = window.NOTICES_CONFIG.editUrl.replace('0', data.id);
+          console.log('Form action set to:', form.action);
+          
+          if (modalTitle) modalTitle.innerHTML = '<i class="bi bi-pencil-square me-2"></i>Редактировать извещение';
+          
+          const itemsContainer = document.getElementById('itemsContainer');
+          if (itemsContainer) {
+              itemsContainer.innerHTML = '';
+              
+              if (data.items && data.items.length > 0) {
+                  data.items.forEach((item, index) => {
+                      addItemRow(item, index);
+                  });
+              } else {
+                  addItemRow(null, 0);
+              }
+          }
+          
+          const totalForms = document.getElementById('id_items-TOTAL_FORMS');
+          if (totalForms && itemsContainer) {
+              totalForms.value = itemsContainer.children.length;
+          }
+          
+          const modalElement = document.getElementById('noticeModal');
+          const modal = new bootstrap.Modal(modalElement);
+          modal.show();
+      })
+      .catch(error => {
+          console.error('Error loading notice data:', error);
+          alert('Ошибка загрузки данных извещения: ' + error.message);
+          if (modalTitle) modalTitle.innerHTML = '<i class="bi bi-bell me-2"></i>Добавить извещение';
+      });
+  }
+  
+  function confirmDelete(noticeId) {
+    if (confirm('Вы уверены, что хотите удалить это извещение? Действие необратимо.')) {
+      const form = document.getElementById('deleteForm');
+      form.action = `/notice/${noticeId}/delete/`;
+      form.submit();
+    }
+  }
+  
+  // ========== ФУНКЦИЯ ДЛЯ ОТОБРАЖЕНИЯ ОШИБОК ==========
+  
+  function showFormErrors(errors) {
+    document.querySelectorAll('.is-invalid').forEach(el => {
+      el.classList.remove('is-invalid');
     });
-
-    // Обновляем при изменении размера окна
-    window.addEventListener('resize', syncWidth);
-    window.addEventListener('load', syncWidth);
-    syncWidth();
-  })();
+    document.querySelectorAll('.invalid-feedback').forEach(el => {
+      el.remove();
+    });
+    
+    for (const [field, messages] of Object.entries(errors)) {
+      let inputElement = null;
+      
+      if (field === 'newspaper') {
+        inputElement = document.getElementById('id_newspaper');
+      } else if (field === 'issue_date') {
+        inputElement = document.getElementById('id_issue_date');
+      } else if (field === 'approval_date') {
+        inputElement = document.getElementById('id_approval_date');
+      }
+      
+      if (inputElement) {
+        inputElement.classList.add('is-invalid');
+        const feedback = document.createElement('div');
+        feedback.className = 'invalid-feedback';
+        feedback.innerHTML = Array.isArray(messages) ? messages.join('<br>') : messages;
+        inputElement.parentNode.appendChild(feedback);
+      }
+    }
+  }
+  
+  // ========== ОБРАБОТЧИК ФОРМЫ ==========
+  
+  function handleFormSubmit(e) {
+    e.preventDefault();
+    console.log('Form submitted');
+    
+    const form = this;
+    const formData = new FormData(form);
+    const url = form.action;
+    
+    // Добавляем management form данные для formset
+    const itemsCount = document.querySelectorAll('.item-card').length;
+    formData.set('items-TOTAL_FORMS', itemsCount);
+    formData.set('items-INITIAL_FORMS', '0');
+    formData.set('items-MIN_NUM_FORMS', '0');
+    formData.set('items-MAX_NUM_FORMS', '1000');
+    
+    // Логируем отправляемые данные для отладки
+    console.log('Sending to URL:', url);
+    for (let pair of formData.entries()) {
+        console.log(pair[0] + ': ' + pair[1]);
+    }
+    
+    const submitBtn = form.querySelector('button[type="submit"]');
+    const originalText = submitBtn.innerHTML;
+    submitBtn.innerHTML = '<i class="bi bi-hourglass-split me-1"></i>Сохранение...';
+    submitBtn.disabled = true;
+    
+    fetch(url, {
+        method: 'POST',
+        body: formData,
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest',
+            'X-CSRFToken': window.NOTICES_CONFIG.csrfToken
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        console.log('Response data:', data);
+        if (data.success) {
+            showToastMessage('Извещение успешно сохранено!', 'success');
+            setTimeout(() => {
+                location.reload();
+            }, 1500);
+        } else {
+            let errorMessage = 'Ошибка при сохранении:\n';
+            if (data.errors) {
+                for (const [field, errors] of Object.entries(data.errors)) {
+                    errorMessage += `${field}: ${Array.isArray(errors) ? errors.join(', ') : errors}\n`;
+                }
+            } else {
+                errorMessage += data.message || 'Проверьте правильность заполнения полей';
+            }
+            alert(errorMessage);
+            
+            if (data.errors) {
+                showFormErrors(data.errors);
+            }
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Ошибка при сохранении: ' + error);
+    })
+    .finally(() => {
+        submitBtn.innerHTML = originalText;
+        submitBtn.disabled = false;
+    });
+}
+  
+  // ========== ОБРАБОТЧИКИ КНОПОК В ТАБЛИЦЕ ==========
+  
+  function handleEditClick(e) {
+    e.preventDefault();
+    const id = this.getAttribute('data-id');
+    console.log('Edit button clicked, ID:', id);
+    if (id) {
+      openEditModal(id);
+    } else {
+      console.error('No data-id attribute found');
+    }
+  }
+  
+  function handleDeleteClick(e) {
+    e.preventDefault();
+    const id = this.getAttribute('data-id');
+    console.log('Delete button clicked, ID:', id);
+    if (id) {
+      confirmDelete(id);
+    } else {
+      console.error('No data-id attribute found');
+    }
+  }
+  
+  // ========== ФУНКЦИЯ ИМПОРТА ==========
+  
+  function doImport() {
+    const fileInput = document.getElementById('importFile');
+    const resultDiv = document.getElementById('importResult');
+    const btn = document.getElementById('importBtn');
+    const spinner = document.getElementById('importSpinner');
+    
+    if (!fileInput || !fileInput.files.length) {
+      alert('Выберите файл Excel');
+      return;
+    }
+    
+    const formData = new FormData();
+    formData.append('excel_file', fileInput.files[0]);
+    
+    btn.disabled = true;
+    if (spinner) spinner.classList.remove('d-none');
+    if (resultDiv) resultDiv.classList.add('d-none');
+    
+    fetch(window.NOTICES_CONFIG.importUrl, {
+      method: 'POST',
+      headers: { 'X-CSRFToken': window.NOTICES_CONFIG.csrfToken },
+      body: formData,
+    })
+    .then(r => r.json())
+    .then(data => {
+      if (resultDiv) {
+        resultDiv.classList.remove('d-none');
+        if (data.success) {
+          resultDiv.className = 'alert alert-success mb-3';
+          resultDiv.innerHTML = `<i class="bi bi-check-circle me-1"></i>${data.message}`;
+          setTimeout(() => location.reload(), 1500);
+        } else {
+          resultDiv.className = 'alert alert-danger mb-3';
+          resultDiv.innerHTML = `<i class="bi bi-x-circle me-1"></i>${data.error}`;
+        }
+      }
+    })
+    .catch(err => {
+      if (resultDiv) {
+        resultDiv.classList.remove('d-none');
+        resultDiv.className = 'alert alert-danger mb-3';
+        resultDiv.innerHTML = `<i class="bi bi-x-circle me-1"></i>Ошибка: ${err}`;
+      }
+    })
+    .finally(() => {
+      btn.disabled = false;
+      if (spinner) spinner.classList.add('d-none');
+    });
+  }
+  
+  // ========== ИНИЦИАЛИЗАЦИЯ ==========
+  
+  document.addEventListener('DOMContentLoaded', function() {
+    console.log('DOM fully loaded');
+    
+    // Кнопки даты
+    const setBtn = document.getElementById('setApprovalDateBtn');
+    if (setBtn) setBtn.addEventListener('click', setApprovalDatePlus30);
+    
+    const clearBtn = document.getElementById('clearApprovalDateBtn');
+    if (clearBtn) clearBtn.addEventListener('click', clearApprovalDate);
+    
+    autoFillApprovalDate();
+    
+    // Кнопки редактирования в таблице
+    const editButtons = document.querySelectorAll('.edit-btn');
+    console.log('Found edit buttons:', editButtons.length);
+    editButtons.forEach(btn => {
+      btn.addEventListener('click', handleEditClick);
+    });
+    
+    // Кнопки удаления в таблице
+    const deleteButtons = document.querySelectorAll('.delete-btn');
+    console.log('Found delete buttons:', deleteButtons.length);
+    deleteButtons.forEach(btn => {
+      btn.addEventListener('click', handleDeleteClick);
+    });
+    
+    // Форма
+    const noticeForm = document.getElementById('noticeForm');
+    if (noticeForm) {
+      noticeForm.addEventListener('submit', handleFormSubmit);
+      console.log('Form submit handler attached');
+    }
+    
+    // Импорт
+    const importBtn = document.getElementById('importBtn');
+    if (importBtn) importBtn.addEventListener('click', doImport);
+  });
 </script>
 {% endblock %}
