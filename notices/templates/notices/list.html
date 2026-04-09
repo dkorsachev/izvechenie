@@ -418,45 +418,42 @@
   
   // ========== МАСКА КАДАСТРОВОГО НОМЕРА ==========
   
+ // Маска для кадастрового номера (XX:XX:XXXXXXX:XXXXX...)
   function maskCadastralNumber(input) {
-    let value = input.value.replace(/\D/g, '');
-    
-    if (value.length === 0) {
-      input.value = '';
-      return;
-    }
-    
-    // Ограничиваем длину 16 цифрами
-    if (value.length > 16) {
-      value = value.substring(0, 16);
-    }
-    
-    let result = '';
-    
-    // Группа 1: 2 цифры
-    if (value.length > 0) {
-      result += value.substring(0, 2);
-      if (value.length >= 2) result += ':';
-    }
-    
-    // Группа 2: 2 цифры
-    if (value.length > 2) {
-      result += value.substring(2, 4);
-      if (value.length >= 4) result += ':';
-    }
-    
-    // Группа 3: 7 цифр
-    if (value.length > 4) {
-      result += value.substring(4, Math.min(11, value.length));
-      if (value.length >= 11) result += ':';
-    }
-    
-    // Группа 4: 5 цифр
-    if (value.length > 11) {
-      result += value.substring(11, 16);
-    }
-    
-    input.value = result;
+      let value = input.value.replace(/\D/g, ''); // Удаляем все не цифры
+      
+      if (value.length === 0) {
+          input.value = '';
+          return;
+      }
+      
+      let result = '';
+      
+      // Первая группа (2 цифры)
+      if (value.length > 0) {
+          result += value.substring(0, 2);
+          if (value.length >= 2) result += ':';
+      }
+      
+      // Вторая группа (2 цифры)
+      if (value.length > 2) {
+          result += value.substring(2, 4);
+          if (value.length >= 4) result += ':';
+      }
+      
+      // Третья группа (7 цифр)
+      if (value.length > 4) {
+          const thirdLen = Math.min(7, value.length - 4);
+          result += value.substring(4, 4 + thirdLen);
+          if (value.length >= 4 + thirdLen && value.length > 11) result += ':';
+      }
+      
+      // Четвертая группа (все остальные цифры, без ограничения)
+      if (value.length > 11) {
+          result += value.substring(11);
+      }
+      
+      input.value = result;
   }
   
   function handleCadastralInput(e) {
@@ -475,19 +472,20 @@
     const input = e.target;
     let value = input.value.replace(/\D/g, '');
     
-    if (value.length > 0 && value.length !== 16) {
-      input.classList.add('is-invalid');
-      let feedback = input.parentNode.querySelector('.invalid-feedback');
-      if (!feedback) {
-        feedback = document.createElement('div');
-        feedback.className = 'invalid-feedback';
-        input.parentNode.appendChild(feedback);
-      }
-      feedback.textContent = 'Кадастровый номер должен содержать 16 цифр (пример: 95:19:0102065:1830)';
+    // Проверяем минимальную длину (должно быть минимум 2+2+1 = 5 цифр)
+    if (value.length > 0 && value.length < 5) {
+        input.classList.add('is-invalid');
+        let feedback = input.parentNode.querySelector('.invalid-feedback');
+        if (!feedback) {
+            feedback = document.createElement('div');
+            feedback.className = 'invalid-feedback';
+            input.parentNode.appendChild(feedback);
+        }
+        feedback.textContent = 'Кадастровый номер должен содержать минимум 5 цифр (пример: 95:19:0)';
     } else {
-      input.classList.remove('is-invalid');
-      const feedback = input.parentNode.querySelector('.invalid-feedback');
-      if (feedback) feedback.remove();
+        input.classList.remove('is-invalid');
+        const feedback = input.parentNode.querySelector('.invalid-feedback');
+        if (feedback) feedback.remove();
     }
   }
   
