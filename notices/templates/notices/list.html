@@ -86,33 +86,23 @@
       {% for item in notices %}
       <tr class="status-{{ item.approval_status }}">
         <td class="text-center fw-bold">{{ item.obj.pk }}</td>
-
-        <!-- Объекты -->
         <td>
           {% if item.items %}
             <ol class="mb-0 ps-3 small">
               {% for it in item.items %}
               <li>
                 {% if it.address %}
-                  <span class="text-secondary">
-                    <i class="bi bi-geo-alt-fill"></i>
-                  </span>
+                  <span class="text-secondary"><i class="bi bi-geo-alt-fill"></i></span>
                   {{ it.address|safe }}
                 {% endif %}
                 {% if it.cadastral_number %}
-                  <span class="badge bg-light text-dark border ms-1">
-                    {{ it.cadastral_number|safe }}
-                  </span>
+                  <span class="badge bg-light text-dark border ms-1">{{ it.cadastral_number|safe }}</span>
                 {% endif %}
                 {% if it.customer %}
-                  <br><small class="text-muted">
-                    <i class="bi bi-person me-1"></i>{{ it.customer|safe }}
-                  </small>
+                  <br><small class="text-muted"><i class="bi bi-person me-1"></i>{{ it.customer|safe }}</small>
                 {% endif %}
                 {% if it.contract %}
-                  <small class="text-muted ms-2">
-                    <i class="bi bi-file-text me-1"></i>{{ it.contract|safe }}
-                  </small>
+                  <small class="text-muted ms-2"><i class="bi bi-file-text me-1"></i>{{ it.contract|safe }}</small>
                 {% endif %}
               </li>
               {% endfor %}
@@ -121,11 +111,8 @@
             <span class="text-muted">—</span>
           {% endif %}
         </td>
-
         <td class="small">{{ item.newspaper|safe }}</td>
-        <td class="text-nowrap small">
-          {{ item.obj.issue_date|date:"d.m.Y"|default:"—" }}
-        </td>
+        <td class="text-nowrap small">{{ item.obj.issue_date|date:"d.m.Y"|default:"—" }}</td>
         <td class="text-nowrap small">
           {% if item.obj.approval_date %}
             {{ item.obj.approval_date|date:"d.m.Y" }}
@@ -142,20 +129,15 @@
             <span class="text-muted">—</span>
           {% endif %}
         </td>
-
         <td class="text-nowrap">
           <div class="btn-group btn-group-sm">
-            <button class="btn btn-outline-primary edit-btn" title="Редактировать"
-                    data-id="{{ item.obj.pk }}">
+            <button class="btn btn-outline-primary edit-btn" title="Редактировать" data-id="{{ item.obj.pk }}">
               <i class="bi bi-pencil"></i>
             </button>
-            <a class="btn btn-outline-success"
-              href="{% url 'notice_export' item.obj.pk %}"
-              title="Экспорт Word">
+            <a class="btn btn-outline-success" href="{% url 'notice_export' item.obj.pk %}" title="Экспорт Word">
               <i class="bi bi-file-earmark-word"></i>
             </a>
-            <button class="btn btn-outline-danger delete-btn" title="Удалить"
-                    data-id="{{ item.obj.pk }}">
+            <button class="btn btn-outline-danger delete-btn" title="Удалить" data-id="{{ item.obj.pk }}">
               <i class="bi bi-trash"></i>
             </button>
           </div>
@@ -165,10 +147,7 @@
     </tbody>
   </table>
 </div>
-<div class="text-muted small mt-2">
-  Записей: <strong>{{ notices|length }}</strong>
-</div>
-
+<div class="text-muted small mt-2">Записей: <strong>{{ notices|length }}</strong></div>
 {% else %}
 <div class="alert alert-info">
   <i class="bi bi-info-circle me-2"></i>
@@ -177,135 +156,86 @@
 </div>
 {% endif %}
 
-
-<!-- ══════════════════════════════════════════════
-     МОДАЛЬНОЕ ОКНО: ИМПОРТ ИЗ EXCEL
-══════════════════════════════════════════════ -->
+<!-- МОДАЛЬНОЕ ОКНО: ИМПОРТ ИЗ EXCEL -->
 <div class="modal fade" id="importModal" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog modal-lg">
     <div class="modal-content">
-
       <div class="modal-header bg-success text-white py-2">
-        <h5 class="modal-title mb-0">
-          <i class="bi bi-file-earmark-excel me-2"></i>Импорт из Excel
-        </h5>
-        <button type="button" class="btn-close btn-close-white"
-                data-bs-dismiss="modal"></button>
+        <h5 class="modal-title mb-0"><i class="bi bi-file-earmark-excel me-2"></i>Импорт из Excel</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
       </div>
-
       <div class="modal-body">
-
-        <!-- Инструкция -->
         <div class="alert alert-info small mb-3">
           <strong><i class="bi bi-info-circle me-1"></i>Формат файла Excel (.xlsx):</strong><br>
           Первая строка — заголовки колонок:
           <div class="mt-1">
-            <code>Адрес</code> &nbsp;|&nbsp;
-            <code>Кадастровый номер</code> &nbsp;|&nbsp;
-            <code>Заказчик</code> &nbsp;|&nbsp;
-            <code>Договор</code> &nbsp;|&nbsp;
-            <code>Газета</code> &nbsp;|&nbsp;
-            <code>Дата выпуска</code> &nbsp;|&nbsp;
-            <code>Дата согласования</code>
-          </div>
-          <div class="mt-1 text-muted">
-            Строки с одинаковой газетой и датами объединятся в одно извещение.
-            Колонки необязательные — оставьте пустыми если нет данных.
+            <code>Адрес</code> | <code>Кадастровый номер</code> | <code>Заказчик</code> |
+            <code>Договор</code> | <code>Газета</code> | <code>Дата выпуска</code> | <code>Дата согласования</code>
           </div>
         </div>
-
-        <!-- Результат импорта (скрыт до ответа) -->
         <div id="importResult" class="d-none mb-3"></div>
-
-        <!-- Выбор файла -->
         <div class="mb-3">
           <label class="form-label fw-semibold">Выберите файл Excel</label>
           <input type="file" class="form-control" id="importFile" accept=".xlsx,.xls">
-          <div class="form-text">Поддерживаются форматы .xlsx и .xls</div>
         </div>
-
-        <!-- Скачать шаблон -->
         <div class="border-top pt-3">
           <a href="{% url 'notice_import_template' %}" class="btn btn-outline-secondary btn-sm">
             <i class="bi bi-download me-1"></i>Скачать пустой шаблон Excel
           </a>
-          <span class="text-muted small ms-2">если нет готового файла</span>
         </div>
-
       </div>
-
       <div class="modal-footer py-2">
-        <button type="button" class="btn btn-secondary btn-sm"
-                data-bs-dismiss="modal">Отмена</button>
-        <button type="button" class="btn btn-success btn-sm"
-                id="importBtn">
-          <span id="importSpinner"
-                class="spinner-border spinner-border-sm me-1 d-none"
-                role="status"></span>
+        <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Отмена</button>
+        <button type="button" class="btn btn-success btn-sm" id="importBtn">
+          <span id="importSpinner" class="spinner-border spinner-border-sm me-1 d-none" role="status"></span>
           <i class="bi bi-upload me-1"></i>Импортировать
         </button>
       </div>
-
     </div>
   </div>
 </div>
 
-
-<!-- ══════════════════════════════════════════════
-     МОДАЛЬНОЕ ОКНО: ДОБАВИТЬ / РЕДАКТИРОВАТЬ
-══════════════════════════════════════════════ -->
+<!-- МОДАЛЬНОЕ ОКНО: ДОБАВИТЬ / РЕДАКТИРОВАТЬ -->
 <div class="modal fade" id="noticeModal" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog modal-xl modal-dialog-scrollable">
     <div class="modal-content">
-
       <div class="modal-header bg-primary text-white py-2">
         <h5 class="modal-title mb-0">
           <i class="bi bi-bell me-2"></i>
           <span id="modalTitleText">Добавить извещение</span>
         </h5>
-        <button type="button" class="btn-close btn-close-white"
-                data-bs-dismiss="modal"></button>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
       </div>
 
       <form id="noticeForm" method="post" action="{% url 'notice_create' %}">
         {% csrf_token %}
+        
+        <input type="hidden" name="items-TOTAL_FORMS" id="id_items-TOTAL_FORMS" value="1">
+        <input type="hidden" name="items-INITIAL_FORMS" id="id_items-INITIAL_FORMS" value="0">
+        <input type="hidden" name="items-MIN_NUM_FORMS" id="id_items-MIN_NUM_FORMS" value="0">
+        <input type="hidden" name="items-MAX_NUM_FORMS" id="id_items-MAX_NUM_FORMS" value="1000">
 
         <div class="modal-body p-0">
-
-          <!-- ── Фиксированная шапка: газета и даты ── -->
           <div class="p-3 border-bottom bg-light">
             <div class="row g-3">
               <div class="col-12 col-md-4">
-                <label class="form-label fw-semibold mb-1">
-                  <i class="bi bi-newspaper me-1"></i>Газета
-                </label>
-                <input type="text" name="newspaper" id="id_newspaper"
-                       class="form-control form-control-sm"
-                       placeholder="Название газеты">
+                <label class="form-label fw-semibold mb-1"><i class="bi bi-newspaper me-1"></i>Газета</label>
+                <input type="text" name="newspaper" id="id_newspaper" class="form-control form-control-sm" placeholder="Название газеты">
               </div>
               <div class="col-6 col-md-4">
-                <label class="form-label fw-semibold mb-1">
-                  <i class="bi bi-calendar-event me-1"></i>Дата выпуска
-                </label>
+                <label class="form-label fw-semibold mb-1"><i class="bi bi-calendar-event me-1"></i>Дата выпуска</label>
                 <div class="input-group input-group-sm">
-                  <input type="date" name="issue_date" id="id_issue_date"
-                         class="form-control">
-                  <button type="button" class="btn btn-outline-info" 
-                          id="setApprovalDateBtn" title="Установить дату согласования через 30 дней">
+                  <input type="date" name="issue_date" id="id_issue_date" class="form-control">
+                  <button type="button" class="btn btn-outline-info" id="setApprovalDateBtn">
                     <i class="bi bi-calendar-plus me-1"></i>+30 дней
                   </button>
                 </div>
-                <small class="text-muted">Выберите дату и нажмите +30 дней</small>
               </div>
               <div class="col-6 col-md-4">
-                <label class="form-label fw-semibold mb-1">
-                  <i class="bi bi-calendar-check me-1"></i>Дата согласования
-                </label>
+                <label class="form-label fw-semibold mb-1"><i class="bi bi-calendar-check me-1"></i>Дата согласования</label>
                 <div class="input-group input-group-sm">
-                  <input type="date" name="approval_date" id="id_approval_date"
-                         class="form-control">
-                  <button type="button" class="btn btn-outline-danger" 
-                          id="clearApprovalDateBtn" title="Очистить дату согласования">
+                  <input type="date" name="approval_date" id="id_approval_date" class="form-control">
+                  <button type="button" class="btn btn-outline-danger" id="clearApprovalDateBtn">
                     <i class="bi bi-x-lg"></i>
                   </button>
                 </div>
@@ -313,75 +243,51 @@
             </div>
           </div>
 
-          <!-- ── Прокручиваемая область объектов ── -->
           <div class="p-3">
             <div class="d-flex justify-content-between align-items-center mb-2">
-              <span class="fw-semibold">
-                <i class="bi bi-list-ol me-1"></i>Объекты извещения
-              </span>
+              <span class="fw-semibold"><i class="bi bi-list-ol me-1"></i>Объекты извещения</span>
               <div class="d-flex gap-1">
-                <button type="button" class="btn btn-outline-secondary btn-sm"
-                        onclick="collapseAll()" title="Свернуть все">
+                <button type="button" class="btn btn-outline-secondary btn-sm" onclick="collapseAll()">
                   <i class="bi bi-arrows-collapse"></i>
                 </button>
-                <button type="button" class="btn btn-outline-secondary btn-sm"
-                        onclick="expandAll()" title="Развернуть все">
+                <button type="button" class="btn btn-outline-secondary btn-sm" onclick="expandAll()">
                   <i class="bi bi-arrows-expand"></i>
                 </button>
-                <button type="button" class="btn btn-success btn-sm"
-                        onclick="addItemRow(null)">
+                <button type="button" class="btn btn-success btn-sm" onclick="addItemRow(null)">
                   <i class="bi bi-plus-circle me-1"></i>Добавить объект
                 </button>
               </div>
             </div>
-
-            <!-- Контейнер объектов с прокруткой -->
-            <div id="itemsContainer"
-                 style="max-height:55vh; overflow-y:auto; padding-right:4px;">
-            </div>
-
+            <div id="itemsContainer" style="max-height:55vh; overflow-y:auto; padding-right:4px;"></div>
           </div>
-
           <div id="formErrors" class="alert alert-danger mx-3 mb-3 d-none"></div>
-
-        </div><!-- /modal-body -->
+        </div>
 
         <div class="modal-footer py-2">
-          <button type="button" class="btn btn-secondary btn-sm"
-                  data-bs-dismiss="modal">Отмена</button>
-          <button type="submit" class="btn btn-primary btn-sm">
+          <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Отмена</button>
+          <button type="submit" class="btn btn-primary btn-sm" id="saveNoticeBtn">
             <i class="bi bi-check-lg me-1"></i>Сохранить
           </button>
         </div>
       </form>
-
     </div>
   </div>
 </div>
 
-
-<!-- ══════════════════════════════════════════════
-     МОДАЛЬНОЕ ОКНО: УДАЛЕНИЕ
-══════════════════════════════════════════════ -->
+<!-- МОДАЛЬНОЕ ОКНО: УДАЛЕНИЕ -->
 <div class="modal fade" id="deleteModal" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog">
     <div class="modal-content">
       <div class="modal-header bg-danger text-white">
-        <h5 class="modal-title">
-          <i class="bi bi-exclamation-triangle me-2"></i>Удалить извещение?
-        </h5>
-        <button type="button" class="btn-close btn-close-white"
-                data-bs-dismiss="modal"></button>
+        <h5 class="modal-title"><i class="bi bi-exclamation-triangle me-2"></i>Удалить извещение?</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
       </div>
       <div class="modal-body">Действие необратимо.</div>
       <div class="modal-footer">
-        <button type="button" class="btn btn-secondary"
-                data-bs-dismiss="modal">Отмена</button>
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
         <form id="deleteForm" method="post">
           {% csrf_token %}
-          <button type="submit" class="btn btn-danger">
-            <i class="bi bi-trash me-1"></i>Удалить
-          </button>
+          <button type="submit" class="btn btn-danger"><i class="bi bi-trash me-1"></i>Удалить</button>
         </form>
       </div>
     </div>
@@ -389,50 +295,56 @@
 </div>
 
 <style>
-  /* Легенда */
-  .legend-box {
-    display: inline-block;
-    width: 16px;
-    height: 16px;
-    border-radius: 3px;
-    margin-right: 6px;
-    vertical-align: middle;
-  }
-  
-  /* Статусы строк */
+  .legend-box { display: inline-block; width: 16px; height: 16px; border-radius: 3px; margin-right: 6px; vertical-align: middle; }
   .status-overdue { background-color: #f8d7da; }
   .status-critical { background-color: #f5c6cb; }
   .status-warning { background-color: #fff3cd; }
   .status-attention { background-color: #d1ecf1; }
   .status-ok { background-color: #d4edda; }
-  
-  /* Таблица строго по ширине окна */
-  .table-scroll-wrapper {
-    position: relative;
-    overflow-x: auto;
-    overflow-y: visible;
-    scrollbar-width: thin;
+  .table-scroll-wrapper { position: relative; overflow-x: auto; overflow-y: visible; scrollbar-width: thin; }
+  .table-scroll-wrapper::-webkit-scrollbar { height: 6px; }
+  .table-scroll-wrapper::-webkit-scrollbar-track { background: #f1f1f1; border-radius: 3px; }
+  .table-scroll-wrapper::-webkit-scrollbar-thumb { background: #aaa; border-radius: 3px; }
+  .input-group-sm .btn { white-space: nowrap; }
+  .fias-suggestions {
+    position: fixed !important;
+    z-index: 9999 !important;
+    background: white;
+    border: 1px solid #ced4da;
+    border-radius: 0.375rem;
+    max-height: 250px;
+    overflow-y: auto;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
   }
-  
-  .table-scroll-wrapper::-webkit-scrollbar {
-    height: 6px;
+
+  .fias-suggestion-item {
+      padding: 8px 12px;
+      cursor: pointer;
+      border-bottom: 1px solid #e9ecef;
+      font-size: 14px;
+      font-family: inherit;
   }
-  .table-scroll-wrapper::-webkit-scrollbar-track {
-    background: #f1f1f1;
-    border-radius: 3px;
+
+  .fias-suggestion-item:hover {
+      background-color: #e7f1ff;
+      color: #0d6efd;
   }
-  .table-scroll-wrapper::-webkit-scrollbar-thumb {
-    background: #aaa;
-    border-radius: 3px;
+
+  .fias-suggestion-item:last-child {
+      border-bottom: none;
   }
-  .table-scroll-wrapper::-webkit-scrollbar-thumb:hover {
-    background: #666;
-  }
-  
-  /* Увеличенный отступ для кнопок +30 дней */
-  .input-group-sm .btn {
-    white-space: nowrap;
-  }
+  .cadastral-number-input.is-invalid {
+    border-color: #dc3545;
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12' width='12' height='12' fill='none' stroke='%23dc3545'%3e%3ccircle cx='6' cy='6' r='4.5'/%3e%3cpath stroke-linejoin='round' d='M5.8 3.6h.4L6 6.5z'/%3e%3ccircle cx='6' cy='8.2' r='.6' fill='%23dc3545' stroke='none'/%3e%3c/svg%3e");
+    background-repeat: no-repeat;
+    background-position: right calc(0.375em + 0.1875rem) center;
+    background-size: calc(0.75em + 0.375rem) calc(0.75em + 0.375rem);
+}
+
+.cadastral-number-input:focus.is-invalid {
+    border-color: #dc3545;
+    box-shadow: 0 0 0 0.25rem rgba(220, 53, 69, 0.25);
+}
 </style>
 
 {% endblock %}
@@ -450,10 +362,10 @@
   };
 </script>
 
-<script src="{% static 'notices/js/notices.js' %}"></script>
-
-<!-- Дополнительный JavaScript -->
 <script>
+  // Флаг для предотвращения двойной отправки (глобальный)
+  window.isSubmitting = false;
+  
   // ========== ФУНКЦИИ ДЛЯ ДАТЫ ==========
   
   function calculateApprovalDate(issueDate) {
@@ -466,16 +378,11 @@
   function setApprovalDatePlus30() {
     const issueDateField = document.getElementById('id_issue_date');
     const approvalDateField = document.getElementById('id_approval_date');
-    
-    if (issueDateField && approvalDateField) {
-      const issueDate = issueDateField.value;
-      if (issueDate) {
-        const approvalDate = calculateApprovalDate(issueDate);
-        approvalDateField.value = approvalDate;
-        showToastMessage('Дата согласования установлена через 30 дней от даты выпуска', 'success');
-      } else {
-        showToastMessage('Сначала выберите дату выпуска газеты', 'warning');
-      }
+    if (issueDateField && approvalDateField && issueDateField.value) {
+      approvalDateField.value = calculateApprovalDate(issueDateField.value);
+      showToastMessage('Дата согласования установлена через 30 дней', 'success');
+    } else {
+      showToastMessage('Сначала выберите дату выпуска газеты', 'warning');
     }
   }
   
@@ -488,67 +395,154 @@
   }
   
   function showToastMessage(message, type) {
-    if (typeof window.showToast === 'function') {
-      window.showToast(message, type);
-    } else {
-      const toast = document.createElement('div');
-      toast.className = `alert alert-${type === 'success' ? 'success' : (type === 'warning' ? 'warning' : 'info')} position-fixed`;
-      toast.style.cssText = 'top: 20px; right: 20px; z-index: 9999; min-width: 300px;';
-      toast.innerHTML = `<i class="bi bi-${type === 'success' ? 'check-circle' : (type === 'warning' ? 'exclamation-triangle' : 'info-circle')} me-2"></i>${message}`;
-      document.body.appendChild(toast);
-      setTimeout(() => toast.remove(), 3000);
-    }
+    const toast = document.createElement('div');
+    toast.className = `alert alert-${type === 'success' ? 'success' : (type === 'warning' ? 'warning' : 'info')} position-fixed`;
+    toast.style.cssText = 'top: 20px; right: 20px; z-index: 9999; min-width: 300px;';
+    toast.innerHTML = `<i class="bi bi-${type === 'success' ? 'check-circle' : (type === 'warning' ? 'exclamation-triangle' : 'info-circle')} me-2"></i>${message}`;
+    document.body.appendChild(toast);
+    setTimeout(() => toast.remove(), 3000);
   }
   
   function autoFillApprovalDate() {
     const issueDateField = document.getElementById('id_issue_date');
     const approvalDateField = document.getElementById('id_approval_date');
-    
     if (issueDateField && approvalDateField) {
       issueDateField.addEventListener('change', function() {
-        if (!approvalDateField.value) {
-          const approvalDate = calculateApprovalDate(this.value);
-          if (approvalDate) {
-            approvalDateField.value = approvalDate;
-            showToastMessage('Дата согласования автоматически установлена через 30 дней', 'success');
-          }
+        if (!approvalDateField.value && this.value) {
+          approvalDateField.value = calculateApprovalDate(this.value);
+          showToastMessage('Дата согласования автоматически установлена через 30 дней', 'success');
         }
       });
     }
   }
   
-  // ========== ФУНКЦИИ ДЛЯ РАБОТЫ С ОБЪЕКТАМИ ==========
+  // ========== МАСКА КАДАСТРОВОГО НОМЕРА ==========
+  
+  function maskCadastralNumber(input) {
+    let value = input.value.replace(/\D/g, '');
+    
+    if (value.length === 0) {
+      input.value = '';
+      return;
+    }
+    
+    // Ограничиваем длину 16 цифрами
+    if (value.length > 16) {
+      value = value.substring(0, 16);
+    }
+    
+    let result = '';
+    
+    // Группа 1: 2 цифры
+    if (value.length > 0) {
+      result += value.substring(0, 2);
+      if (value.length >= 2) result += ':';
+    }
+    
+    // Группа 2: 2 цифры
+    if (value.length > 2) {
+      result += value.substring(2, 4);
+      if (value.length >= 4) result += ':';
+    }
+    
+    // Группа 3: 7 цифр
+    if (value.length > 4) {
+      result += value.substring(4, Math.min(11, value.length));
+      if (value.length >= 11) result += ':';
+    }
+    
+    // Группа 4: 5 цифр
+    if (value.length > 11) {
+      result += value.substring(11, 16);
+    }
+    
+    input.value = result;
+  }
+  
+  function handleCadastralInput(e) {
+    const input = e.target;
+    const cursorPos = input.selectionStart;
+    const oldLen = input.value.length;
+    
+    maskCadastralNumber(input);
+    
+    const newLen = input.value.length;
+    const newCursorPos = cursorPos + (newLen - oldLen);
+    input.setSelectionRange(Math.max(0, newCursorPos), Math.max(0, newCursorPos));
+  }
+  
+  function formatCadastralOnBlur(e) {
+    const input = e.target;
+    let value = input.value.replace(/\D/g, '');
+    
+    if (value.length > 0 && value.length !== 16) {
+      input.classList.add('is-invalid');
+      let feedback = input.parentNode.querySelector('.invalid-feedback');
+      if (!feedback) {
+        feedback = document.createElement('div');
+        feedback.className = 'invalid-feedback';
+        input.parentNode.appendChild(feedback);
+      }
+      feedback.textContent = 'Кадастровый номер должен содержать 16 цифр (пример: 95:19:0102065:1830)';
+    } else {
+      input.classList.remove('is-invalid');
+      const feedback = input.parentNode.querySelector('.invalid-feedback');
+      if (feedback) feedback.remove();
+    }
+  }
+  
+  function initCadastralMasks() {
+    const cadastralInputs = document.querySelectorAll('.cadastral-number-input');
+    console.log('Found cadastral inputs:', cadastralInputs.length);
+    
+    cadastralInputs.forEach(input => {
+      input.removeEventListener('input', handleCadastralInput);
+      input.removeEventListener('blur', formatCadastralOnBlur);
+      input.addEventListener('input', handleCadastralInput);
+      input.addEventListener('blur', formatCadastralOnBlur);
+    });
+  }
+  
+  // ========== ФУНКЦИИ ДЛЯ ОБЪЕКТОВ ==========
   
   function addItemRow(itemData, index) {
     const container = document.getElementById('itemsContainer');
     if (!container) return;
+    if (itemData && itemData.id && container.querySelector(`.item-card[data-original-id="${itemData.id}"]`)) return;
     
-    const itemIndex = index !== undefined ? index : container.children.length;
-    const currentId = Date.now() + Math.random();
-    
-    const address = itemData ? (itemData.address || '') : '';
-    const cadastral_number = itemData ? (itemData.cadastral_number || '') : '';
-    const customer = itemData ? (itemData.customer || '') : '';
-    const contract = itemData ? (itemData.contract || '') : '';
-    const itemId = itemData && itemData.id ? itemData.id : '';
+    const itemIndex = (index !== undefined && index !== null) ? index : container.children.length;
+    const address = itemData?.address || '';
+    const cadastral_number = itemData?.cadastral_number || '';
+    const customer = itemData?.customer || '';
+    const contract = itemData?.contract || '';
+    const itemId = itemData?.id || '';
+    const fias_id = itemData?.fias_id || '';
+    const region = itemData?.region || '';
+    const city = itemData?.city || '';
+    const street = itemData?.street || '';
+    const house = itemData?.house || '';
     
     const itemHtml = `
-      <div class="card mb-2 item-card" data-item-id="${currentId}">
-        <div class="card-body py-2">
-          <div class="d-flex justify-content-between align-items-start mb-2">
-            <strong class="text-primary">Объект ${itemIndex + 1}</strong>
-            <button type="button" class="btn btn-sm btn-outline-danger" onclick="removeItemRow(this)">
-              <i class="bi bi-trash"></i>
-            </button>
+      <div class="card mb-2 item-card" data-original-id="${itemId}">
+        <div class="card-header bg-white py-1 px-2 d-flex justify-content-between align-items-center">
+          <strong class="text-primary">Объект ${itemIndex + 1}</strong>
+          <div>
+            <button type="button" class="btn btn-sm btn-outline-secondary toggle-item-btn"><i class="bi bi-dash-lg"></i></button>
+            <button type="button" class="btn btn-sm btn-outline-danger" onclick="removeItemRow(this)"><i class="bi bi-trash"></i></button>
           </div>
+        </div>
+        <div class="card-body py-2">
           <div class="row g-2">
             <div class="col-12">
               <label class="form-label small fw-semibold mb-0">Адрес</label>
-              <textarea name="items-${itemIndex}-address" class="form-control form-control-sm" rows="2">${escapeHtml(address)}</textarea>
+              <textarea name="items-${itemIndex}-address" class="form-control form-control-sm fias-address" rows="2" placeholder="Начните вводить адрес...">${escapeHtml(address)}</textarea>
             </div>
             <div class="col-md-6">
               <label class="form-label small fw-semibold mb-0">Кадастровый номер</label>
-              <input type="text" name="items-${itemIndex}-cadastral_number" class="form-control form-control-sm" value="${escapeHtml(cadastral_number)}">
+              <input type="text" name="items-${itemIndex}-cadastral_number" 
+                     class="form-control form-control-sm cadastral-number-input" 
+                     value="${escapeHtml(cadastral_number)}"
+                     placeholder="XX:XX:XXXXXXX:XXXXX">
             </div>
             <div class="col-md-6">
               <label class="form-label small fw-semibold mb-0">Заказчик</label>
@@ -560,47 +554,93 @@
             </div>
           </div>
           <input type="hidden" name="items-${itemIndex}-order" value="${itemIndex}">
-          ${itemId ? `<input type="hidden" name="items-${itemIndex}-id" value="${itemId}">` : ''}
+          <input type="hidden" name="items-${itemIndex}-id" value="${itemId}">
+          <input type="hidden" name="items-${itemIndex}-fias_id" value="${escapeHtml(fias_id)}">
+          <input type="hidden" name="items-${itemIndex}-region" value="${escapeHtml(region)}">
+          <input type="hidden" name="items-${itemIndex}-city" value="${escapeHtml(city)}">
+          <input type="hidden" name="items-${itemIndex}-street" value="${escapeHtml(street)}">
+          <input type="hidden" name="items-${itemIndex}-house" value="${escapeHtml(house)}">
+          <input type="hidden" name="items-${itemIndex}-DELETE" value="">
         </div>
       </div>
     `;
     
     container.insertAdjacentHTML('beforeend', itemHtml);
-    updateItemIndices();
+    const newCard = container.lastElementChild;
+    newCard.querySelector('.toggle-item-btn')?.addEventListener('click', function(e) {
+      e.stopPropagation();
+      const body = newCard.querySelector('.card-body');
+      const icon = this.querySelector('i');
+      if (body.style.display === 'none') {
+        body.style.display = '';
+        icon.className = 'bi bi-dash-lg';
+      } else {
+        body.style.display = 'none';
+        icon.className = 'bi bi-plus-lg';
+      }
+    });
     
+    updateItemIndices();
     const totalForms = document.getElementById('id_items-TOTAL_FORMS');
-    if (totalForms) {
-      totalForms.value = container.children.length;
-    }
+    if (totalForms) totalForms.value = container.children.length;
+    
+    // Инициализируем ФИАС и маску для нового поля
+    initFiasSuggestions();
+    initCadastralMasks();
   }
   
   function removeItemRow(btn) {
     const card = btn.closest('.item-card');
     if (card) {
-      card.remove();
+      const deleteInput = card.querySelector('input[name$="-DELETE"]');
+      if (deleteInput) deleteInput.value = 'on';
+      card.style.display = 'none';
       updateItemIndices();
-      
       const container = document.getElementById('itemsContainer');
       const totalForms = document.getElementById('id_items-TOTAL_FORMS');
-      if (totalForms && container) {
-        totalForms.value = container.children.length;
-      }
+      if (totalForms && container) totalForms.value = Array.from(container.children).filter(c => c.style.display !== 'none').length;
     }
   }
   
   function updateItemIndices() {
-    const items = document.querySelectorAll('.item-card');
+    const container = document.getElementById('itemsContainer');
+    if (!container) return;
+    const items = Array.from(container.children).filter(card => card.style.display !== 'none');
     items.forEach((item, idx) => {
       const title = item.querySelector('.text-primary');
       if (title) title.textContent = `Объект ${idx + 1}`;
-      
       item.querySelectorAll('[name*="items-"]').forEach(input => {
         const oldName = input.getAttribute('name');
-        if (oldName) {
-          const newName = oldName.replace(/items-\d+-/, `items-${idx}-`);
-          input.setAttribute('name', newName);
-        }
+        if (oldName) input.setAttribute('name', oldName.replace(/items-\d+-/, `items-${idx}-`));
       });
+      const orderInput = item.querySelector('input[name$="-order"]');
+      if (orderInput) orderInput.value = idx;
+    });
+  }
+  
+  function collapseAll() {
+    const container = document.getElementById('itemsContainer');
+    if (!container) return;
+    Array.from(container.children).filter(c => c.style.display !== 'none').forEach(card => {
+      const body = card.querySelector('.card-body');
+      if (body && body.style.display !== 'none') {
+        body.style.display = 'none';
+        const icon = card.querySelector('.toggle-item-btn i');
+        if (icon) icon.className = 'bi bi-plus-lg';
+      }
+    });
+  }
+  
+  function expandAll() {
+    const container = document.getElementById('itemsContainer');
+    if (!container) return;
+    Array.from(container.children).filter(c => c.style.display !== 'none').forEach(card => {
+      const body = card.querySelector('.card-body');
+      if (body) {
+        body.style.display = '';
+        const icon = card.querySelector('.toggle-item-btn i');
+        if (icon) icon.className = 'bi bi-dash-lg';
+      }
     });
   }
   
@@ -611,149 +651,186 @@
     return div.innerHTML;
   }
   
-  function collapseAll() {
-    console.log('Collapse all');
+  // ========== ФУНКЦИИ ДЛЯ ФИАС ==========
+  
+  let fiasTimeout = null;
+  
+  function initFiasSuggestions() {
+    const addressTextareas = document.querySelectorAll('textarea[name$="-address"]');
+    console.log('Found FIAS textareas:', addressTextareas.length);
+    
+    addressTextareas.forEach(textarea => {
+      textarea.removeEventListener('input', handleFiasInput);
+      textarea.removeEventListener('focus', handleFiasFocus);
+      textarea.addEventListener('input', handleFiasInput);
+      textarea.addEventListener('focus', handleFiasFocus);
+    });
   }
   
-  function expandAll() {
-    console.log('Expand all');
+  function handleFiasFocus(e) {
+    const textarea = e.target;
+    const query = textarea.value.trim();
+    if (query.length >= 3) {
+      fetchFiasSuggestions(query, textarea);
+    }
   }
   
-  // ========== ФУНКЦИИ ДЛЯ ОТКРЫТИЯ МОДАЛЬНЫХ ОКОН ==========
+  function handleFiasInput(e) {
+    const textarea = e.target;
+    const query = textarea.value.trim();
+    
+    if (fiasTimeout) clearTimeout(fiasTimeout);
+    
+    const oldContainer = document.querySelector('.fias-suggestions');
+    if (oldContainer) oldContainer.remove();
+    
+    if (query.length < 3) return;
+    
+    fiasTimeout = setTimeout(() => {
+      fetchFiasSuggestions(query, textarea);
+    }, 300);
+  }
+  
+  function fetchFiasSuggestions(query, textarea) {
+    fetch(`${window.NOTICES_CONFIG.fiasUrl}?q=${encodeURIComponent(query)}`)
+      .then(response => response.json())
+      .then(data => {
+        const oldContainer = document.querySelector('.fias-suggestions');
+        if (oldContainer) oldContainer.remove();
+        
+        if (data.suggestions && data.suggestions.length > 0) {
+          showFiasSuggestions(data.suggestions, textarea);
+        }
+      })
+      .catch(error => console.error('FIAS error:', error));
+  }
+  
+  function showFiasSuggestions(suggestions, textarea) {
+    const container = document.createElement('div');
+    container.className = 'fias-suggestions';
+    container.style.cssText = `
+      position: fixed;
+      z-index: 1050;
+      background: white;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      max-height: 250px;
+      overflow-y: auto;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+      width: ${textarea.offsetWidth}px;
+    `;
+    
+    const rect = textarea.getBoundingClientRect();
+    container.style.top = `${rect.bottom + 2}px`;
+    container.style.left = `${rect.left}px`;
+    
+    suggestions.forEach(suggestion => {
+      const item = document.createElement('div');
+      item.className = 'fias-suggestion-item';
+      item.style.cssText = `
+        padding: 8px 12px;
+        cursor: pointer;
+        border-bottom: 1px solid #eee;
+        font-size: 14px;
+      `;
+      item.innerHTML = suggestion.value;
+      item.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        textarea.value = suggestion.value;
+        container.remove();
+        updateHiddenFields(textarea, suggestion);
+        textarea.focus();
+      });
+      item.addEventListener('mouseenter', () => {
+        item.style.backgroundColor = '#f5f5f5';
+      });
+      item.addEventListener('mouseleave', () => {
+        item.style.backgroundColor = '';
+      });
+      container.appendChild(item);
+    });
+    
+    document.body.appendChild(container);
+    
+    const closeOnScroll = function() {
+      if (container && container.parentNode) {
+        container.remove();
+        window.removeEventListener('scroll', closeOnScroll);
+      }
+    };
+    window.addEventListener('scroll', closeOnScroll, { once: true });
+  }
+  
+  function updateHiddenFields(textarea, suggestion) {
+    const card = textarea.closest('.item-card');
+    if (!card) return;
+    
+    const fiasIdInput = card.querySelector('input[name$="-fias_id"]');
+    const regionInput = card.querySelector('input[name$="-region"]');
+    const cityInput = card.querySelector('input[name$="-city"]');
+    const streetInput = card.querySelector('input[name$="-street"]');
+    const houseInput = card.querySelector('input[name$="-house"]');
+    
+    if (fiasIdInput) fiasIdInput.value = suggestion.fias_id || '';
+    if (regionInput) regionInput.value = suggestion.region || '';
+    if (cityInput) cityInput.value = suggestion.city || '';
+    if (streetInput) streetInput.value = suggestion.street || '';
+    if (houseInput) houseInput.value = suggestion.house || '';
+  }
+  
+  // ========== МОДАЛЬНЫЕ ОКНА ==========
   
   function openAddModal() {
-    console.log('Opening add modal');
-    
     document.getElementById('id_newspaper').value = '';
     document.getElementById('id_issue_date').value = '';
     document.getElementById('id_approval_date').value = '';
-    
-    const form = document.getElementById('noticeForm');
-    form.action = window.NOTICES_CONFIG.createUrl;
-    
-    const modalTitle = document.getElementById('modalTitleText');
-    if (modalTitle) modalTitle.innerHTML = '<i class="bi bi-plus-circle me-2"></i>Добавить извещение';
-    
-    const itemsContainer = document.getElementById('itemsContainer');
-    if (itemsContainer) {
-      itemsContainer.innerHTML = '';
-      addItemRow(null, 0);
-    }
-    
+    document.getElementById('noticeForm').action = window.NOTICES_CONFIG.createUrl;
+    document.getElementById('modalTitleText').innerHTML = '<i class="bi bi-plus-circle me-2"></i>Добавить извещение';
+    const container = document.getElementById('itemsContainer');
+    if (container) container.innerHTML = '';
+    addItemRow(null, 0);
     const totalForms = document.getElementById('id_items-TOTAL_FORMS');
     if (totalForms) totalForms.value = 1;
-    
-    const modal = new bootstrap.Modal(document.getElementById('noticeModal'));
-    modal.show();
+    new bootstrap.Modal(document.getElementById('noticeModal')).show();
   }
   
   function openEditModal(noticeId) {
-      console.log('Opening edit modal for ID:', noticeId);
-      
-      if (!noticeId) {
-          console.error('No notice ID provided');
-          alert('Ошибка: не указан ID извещения');
-          return;
-      }
-      
-      const modalTitle = document.getElementById('modalTitleText');
-      if (modalTitle) modalTitle.innerHTML = '<i class="bi bi-hourglass-split me-2"></i>Загрузка...';
-      
-      // Используем URL из конфига
-      const getUrl = window.NOTICES_CONFIG.getUrl.replace('0', noticeId);
-      console.log('Fetching from URL:', getUrl);
-      
-      fetch(getUrl, {
-          method: 'GET',
-          headers: {
-              'X-Requested-With': 'XMLHttpRequest',
-          }
-      })
-      .then(response => {
-          console.log('Response status:', response.status);
-          if (!response.ok) {
-              throw new Error(`HTTP error! status: ${response.status}`);
-          }
-          return response.json();
-      })
+    if (!noticeId) return;
+    document.getElementById('modalTitleText').innerHTML = '<i class="bi bi-hourglass-split me-2"></i>Загрузка...';
+    const getUrl = window.NOTICES_CONFIG.getUrl.replace('0', noticeId);
+    fetch(getUrl, { method: 'GET', headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+      .then(response => response.json())
       .then(data => {
-          console.log('Notice data loaded:', data);
-          
-          document.getElementById('id_newspaper').value = data.newspaper || '';
-          document.getElementById('id_issue_date').value = data.issue_date || '';
-          document.getElementById('id_approval_date').value = data.approval_date || '';
-          
-          const form = document.getElementById('noticeForm');
-          form.action = window.NOTICES_CONFIG.editUrl.replace('0', data.id);
-          console.log('Form action set to:', form.action);
-          
-          if (modalTitle) modalTitle.innerHTML = '<i class="bi bi-pencil-square me-2"></i>Редактировать извещение';
-          
-          const itemsContainer = document.getElementById('itemsContainer');
-          if (itemsContainer) {
-              itemsContainer.innerHTML = '';
-              
-              if (data.items && data.items.length > 0) {
-                  data.items.forEach((item, index) => {
-                      addItemRow(item, index);
-                  });
-              } else {
-                  addItemRow(null, 0);
-              }
-          }
-          
-          const totalForms = document.getElementById('id_items-TOTAL_FORMS');
-          if (totalForms && itemsContainer) {
-              totalForms.value = itemsContainer.children.length;
-          }
-          
-          const modalElement = document.getElementById('noticeModal');
-          const modal = new bootstrap.Modal(modalElement);
-          modal.show();
+        document.getElementById('id_newspaper').value = data.newspaper || '';
+        document.getElementById('id_issue_date').value = data.issue_date || '';
+        document.getElementById('id_approval_date').value = data.approval_date || '';
+        document.getElementById('noticeForm').action = window.NOTICES_CONFIG.editUrl.replace('0', data.id);
+        document.getElementById('modalTitleText').innerHTML = '<i class="bi bi-pencil-square me-2"></i>Редактировать извещение';
+        const container = document.getElementById('itemsContainer');
+        if (container) container.innerHTML = '';
+        if (data.items && data.items.length > 0) {
+          data.items.forEach((item, i) => addItemRow(item, i));
+        } else {
+          addItemRow(null, 0);
+        }
+        const totalForms = document.getElementById('id_items-TOTAL_FORMS');
+        if (totalForms && container) totalForms.value = container.children.length;
+        
+        setTimeout(() => {
+          initCadastralMasks();
+          initFiasSuggestions();
+        }, 100);
+        
+        new bootstrap.Modal(document.getElementById('noticeModal')).show();
       })
-      .catch(error => {
-          console.error('Error loading notice data:', error);
-          alert('Ошибка загрузки данных извещения: ' + error.message);
-          if (modalTitle) modalTitle.innerHTML = '<i class="bi bi-bell me-2"></i>Добавить извещение';
-      });
+      .catch(error => alert('Ошибка загрузки: ' + error.message));
   }
   
   function confirmDelete(noticeId) {
-    if (confirm('Вы уверены, что хотите удалить это извещение? Действие необратимо.')) {
-      const form = document.getElementById('deleteForm');
-      form.action = `/notice/${noticeId}/delete/`;
-      form.submit();
-    }
-  }
-  
-  // ========== ФУНКЦИЯ ДЛЯ ОТОБРАЖЕНИЯ ОШИБОК ==========
-  
-  function showFormErrors(errors) {
-    document.querySelectorAll('.is-invalid').forEach(el => {
-      el.classList.remove('is-invalid');
-    });
-    document.querySelectorAll('.invalid-feedback').forEach(el => {
-      el.remove();
-    });
-    
-    for (const [field, messages] of Object.entries(errors)) {
-      let inputElement = null;
-      
-      if (field === 'newspaper') {
-        inputElement = document.getElementById('id_newspaper');
-      } else if (field === 'issue_date') {
-        inputElement = document.getElementById('id_issue_date');
-      } else if (field === 'approval_date') {
-        inputElement = document.getElementById('id_approval_date');
-      }
-      
-      if (inputElement) {
-        inputElement.classList.add('is-invalid');
-        const feedback = document.createElement('div');
-        feedback.className = 'invalid-feedback';
-        feedback.innerHTML = Array.isArray(messages) ? messages.join('<br>') : messages;
-        inputElement.parentNode.appendChild(feedback);
-      }
+    if (confirm('Вы уверены, что хотите удалить это извещение?')) {
+      document.getElementById('deleteForm').action = `/${noticeId}/delete/`;
+      document.getElementById('deleteForm').submit();
     }
   }
   
@@ -761,116 +838,77 @@
   
   function handleFormSubmit(e) {
     e.preventDefault();
-    console.log('Form submitted');
+    e.stopPropagation();
+    
+    if (window.isSubmitting) {
+      console.log('Form already submitting, ignoring...');
+      return false;
+    }
+    
+    console.log('Form submitting...');
+    window.isSubmitting = true;
     
     const form = this;
     const formData = new FormData(form);
-    const url = form.action;
+    const visibleCards = Array.from(document.querySelectorAll('.item-card')).filter(card => card.style.display !== 'none');
+    const itemsCount = visibleCards.length;
     
-    // Добавляем management form данные для formset
-    const itemsCount = document.querySelectorAll('.item-card').length;
     formData.set('items-TOTAL_FORMS', itemsCount);
     formData.set('items-INITIAL_FORMS', '0');
     formData.set('items-MIN_NUM_FORMS', '0');
     formData.set('items-MAX_NUM_FORMS', '1000');
     
-    // Логируем отправляемые данные для отладки
-    console.log('Sending to URL:', url);
-    for (let pair of formData.entries()) {
-        console.log(pair[0] + ': ' + pair[1]);
-    }
-    
-    const submitBtn = form.querySelector('button[type="submit"]');
+    const submitBtn = document.getElementById('saveNoticeBtn');
     const originalText = submitBtn.innerHTML;
     submitBtn.innerHTML = '<i class="bi bi-hourglass-split me-1"></i>Сохранение...';
     submitBtn.disabled = true;
     
-    fetch(url, {
-        method: 'POST',
-        body: formData,
-        headers: {
-            'X-Requested-With': 'XMLHttpRequest',
-            'X-CSRFToken': window.NOTICES_CONFIG.csrfToken
-        }
+    fetch(form.action, {
+      method: 'POST',
+      body: formData,
+      headers: { 
+        'X-Requested-With': 'XMLHttpRequest',
+        'X-CSRFToken': window.NOTICES_CONFIG.csrfToken 
+      }
     })
     .then(response => response.json())
     .then(data => {
-        console.log('Response data:', data);
-        if (data.success) {
-            showToastMessage('Извещение успешно сохранено!', 'success');
-            setTimeout(() => {
-                location.reload();
-            }, 1500);
-        } else {
-            let errorMessage = 'Ошибка при сохранении:\n';
-            if (data.errors) {
-                for (const [field, errors] of Object.entries(data.errors)) {
-                    errorMessage += `${field}: ${Array.isArray(errors) ? errors.join(', ') : errors}\n`;
-                }
-            } else {
-                errorMessage += data.message || 'Проверьте правильность заполнения полей';
-            }
-            alert(errorMessage);
-            
-            if (data.errors) {
-                showFormErrors(data.errors);
-            }
+      if (data.success) {
+        location.reload();
+      } else {
+        let errorMessage = 'Ошибка при сохранении:\n';
+        if (data.errors) {
+          for (const [field, errors] of Object.entries(data.errors)) {
+            errorMessage += `${field}: ${Array.isArray(errors) ? errors.join(', ') : errors}\n`;
+          }
         }
-    })
-    .catch(error => {
-        console.error('Error:', error);
-        alert('Ошибка при сохранении: ' + error);
-    })
-    .finally(() => {
+        alert(errorMessage);
+        window.isSubmitting = false;
         submitBtn.innerHTML = originalText;
         submitBtn.disabled = false;
+      }
+    })
+    .catch(error => {
+      alert('Ошибка: ' + error);
+      window.isSubmitting = false;
+      submitBtn.innerHTML = originalText;
+      submitBtn.disabled = false;
     });
-}
-  
-  // ========== ОБРАБОТЧИКИ КНОПОК В ТАБЛИЦЕ ==========
-  
-  function handleEditClick(e) {
-    e.preventDefault();
-    const id = this.getAttribute('data-id');
-    console.log('Edit button clicked, ID:', id);
-    if (id) {
-      openEditModal(id);
-    } else {
-      console.error('No data-id attribute found');
-    }
+    
+    return false;
   }
   
-  function handleDeleteClick(e) {
-    e.preventDefault();
-    const id = this.getAttribute('data-id');
-    console.log('Delete button clicked, ID:', id);
-    if (id) {
-      confirmDelete(id);
-    } else {
-      console.error('No data-id attribute found');
-    }
-  }
-  
-  // ========== ФУНКЦИЯ ИМПОРТА ==========
+  // ========== ИМПОРТ ==========
   
   function doImport() {
     const fileInput = document.getElementById('importFile');
-    const resultDiv = document.getElementById('importResult');
-    const btn = document.getElementById('importBtn');
-    const spinner = document.getElementById('importSpinner');
-    
-    if (!fileInput || !fileInput.files.length) {
-      alert('Выберите файл Excel');
-      return;
-    }
-    
+    if (!fileInput?.files.length) { alert('Выберите файл Excel'); return; }
     const formData = new FormData();
     formData.append('excel_file', fileInput.files[0]);
-    
+    const btn = document.getElementById('importBtn');
+    const spinner = document.getElementById('importSpinner');
     btn.disabled = true;
     if (spinner) spinner.classList.remove('d-none');
-    if (resultDiv) resultDiv.classList.add('d-none');
-    
     fetch(window.NOTICES_CONFIG.importUrl, {
       method: 'POST',
       headers: { 'X-CSRFToken': window.NOTICES_CONFIG.csrfToken },
@@ -878,25 +916,15 @@
     })
     .then(r => r.json())
     .then(data => {
+      const resultDiv = document.getElementById('importResult');
       if (resultDiv) {
         resultDiv.classList.remove('d-none');
-        if (data.success) {
-          resultDiv.className = 'alert alert-success mb-3';
-          resultDiv.innerHTML = `<i class="bi bi-check-circle me-1"></i>${data.message}`;
-          setTimeout(() => location.reload(), 1500);
-        } else {
-          resultDiv.className = 'alert alert-danger mb-3';
-          resultDiv.innerHTML = `<i class="bi bi-x-circle me-1"></i>${data.error}`;
-        }
+        resultDiv.className = data.success ? 'alert alert-success mb-3' : 'alert alert-danger mb-3';
+        resultDiv.innerHTML = `<i class="bi bi-${data.success ? 'check-circle' : 'x-circle'} me-1"></i>${data.message || data.error}`;
+        if (data.success) setTimeout(() => location.reload(), 1500);
       }
     })
-    .catch(err => {
-      if (resultDiv) {
-        resultDiv.classList.remove('d-none');
-        resultDiv.className = 'alert alert-danger mb-3';
-        resultDiv.innerHTML = `<i class="bi bi-x-circle me-1"></i>Ошибка: ${err}`;
-      }
-    })
+    .catch(err => alert('Ошибка: ' + err))
     .finally(() => {
       btn.disabled = false;
       if (spinner) spinner.classList.add('d-none');
@@ -908,39 +936,38 @@
   document.addEventListener('DOMContentLoaded', function() {
     console.log('DOM fully loaded');
     
-    // Кнопки даты
-    const setBtn = document.getElementById('setApprovalDateBtn');
-    if (setBtn) setBtn.addEventListener('click', setApprovalDatePlus30);
+    const container = document.getElementById('itemsContainer');
+    if (container) container.innerHTML = '';
     
-    const clearBtn = document.getElementById('clearApprovalDateBtn');
-    if (clearBtn) clearBtn.addEventListener('click', clearApprovalDate);
-    
+    document.getElementById('setApprovalDateBtn')?.addEventListener('click', setApprovalDatePlus30);
+    document.getElementById('clearApprovalDateBtn')?.addEventListener('click', clearApprovalDate);
     autoFillApprovalDate();
     
-    // Кнопки редактирования в таблице
-    const editButtons = document.querySelectorAll('.edit-btn');
-    console.log('Found edit buttons:', editButtons.length);
-    editButtons.forEach(btn => {
-      btn.addEventListener('click', handleEditClick);
+    document.querySelectorAll('.edit-btn').forEach(btn => {
+      btn.addEventListener('click', function(e) { e.preventDefault(); openEditModal(this.dataset.id); });
+    });
+    document.querySelectorAll('.delete-btn').forEach(btn => {
+      btn.addEventListener('click', function(e) { e.preventDefault(); confirmDelete(this.dataset.id); });
     });
     
-    // Кнопки удаления в таблице
-    const deleteButtons = document.querySelectorAll('.delete-btn');
-    console.log('Found delete buttons:', deleteButtons.length);
-    deleteButtons.forEach(btn => {
-      btn.addEventListener('click', handleDeleteClick);
-    });
-    
-    // Форма
     const noticeForm = document.getElementById('noticeForm');
     if (noticeForm) {
+      noticeForm.removeEventListener('submit', handleFormSubmit);
       noticeForm.addEventListener('submit', handleFormSubmit);
-      console.log('Form submit handler attached');
     }
     
-    // Импорт
-    const importBtn = document.getElementById('importBtn');
-    if (importBtn) importBtn.addEventListener('click', doImport);
+    document.getElementById('importBtn')?.addEventListener('click', doImport);
+    
+    // Инициализация
+    initFiasSuggestions();
+    initCadastralMasks();
+  });
+  
+  // Закрытие подсказок при клике вне
+  document.addEventListener('click', function(e) {
+    if (!e.target.closest('.fias-suggestions') && !e.target.closest('textarea[name$="-address"]')) {
+      document.querySelectorAll('.fias-suggestions').forEach(el => el.remove());
+    }
   });
 </script>
 {% endblock %}
